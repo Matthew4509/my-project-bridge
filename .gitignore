@@ -1,0 +1,27 @@
+# Made while the Bridge runs (settings, audits, logs, site pictures, Edge profile for pictures)
+data/
+data-dryrun/
+data-demo/
+# Baked zips (made by node tools/bake.js)
+_releases/
+*.zip
+# Your own project list (names, descriptions, live addresses): keep it out of the repo.
+# Copy projects.example.json to projects.json and edit that. The Bridge reads projects.json; it is never published.
+projects.json
+# Local working notes kept beside the code, never published.
+HANDOFF-*.md
+TOKEN-LOG.md
+# Local plan notes, never published.
+PLAN.md
+# Logs, packages, secrets and the clutter editors and systems leave behind
+*.log
+node_modules/
+.env
+.env.*
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+# AI tool settings (the preview's launch.json): they name the tool the Bridge was built with, so they stay on this PC.
+.claude/
