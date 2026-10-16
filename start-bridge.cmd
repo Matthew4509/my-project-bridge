@@ -13,7 +13,10 @@ rem BRIDGE_LINK_KEY: tests register the link under a throwaway key instead of th
 if not "%~1"=="run" (
   where node >nul 2>&1 || goto :no_node
   node -e "process.exit(+process.versions.node.split('.')[0]>=22?0:1)" || goto :old_node
-  start "My Project Bridge" /min "%~f0" run %1
+  rem Started by a relative name from its own folder: a folder name with & in it would break a full path here.
+  pushd "%~dp0"
+  start "My Project Bridge" /min "%ComSpec%" /d /k .\start-bridge.cmd run %1
+  popd
   exit /b
 )
 title My Project Bridge

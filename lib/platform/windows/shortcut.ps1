@@ -7,6 +7,7 @@ $ErrorActionPreference = 'Stop'
 $bridge = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))   # lib\platform\windows -> the Bridge folder
 $dir = if ($Folder) { $Folder } elseif ($Where -eq 'startup') { [Environment]::GetFolderPath('Startup') } else { [Environment]::GetFolderPath('Desktop') }
 $lnk = Join-Path $dir 'My Project Bridge.lnk'
+$other = $false
 switch ($Action) {
   'create' {
     $sh = New-Object -ComObject WScript.Shell
@@ -19,6 +20,14 @@ switch ($Action) {
     $s.Description = 'My Project Bridge: your projects, local copies and audits'
     $s.Save()
   }
-  'remove' { if (Test-Path -LiteralPath $lnk) { Remove-Item -LiteralPath $lnk -Force } }
+  'remove' {
+    # Only this copy's shortcut: one that starts another copy of the Bridge (in another folder that still has it) is
+    # left alone. One whose program is gone (this folder was moved) is removed.
+    if (Test-Path -LiteralPath $lnk) {
+      $target = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).TargetPath
+      if (-not $target -or -not (Test-Path -LiteralPath $target) -or $target.StartsWith($bridge.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) { Remove-Item -LiteralPath $lnk -Force }
+      else { $other = $true }
+    }
+  }
 }
-ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ where = $Where; path = $lnk; exists = (Test-Path -LiteralPath $lnk) })
+ConvertTo-Json -Compress -InputObject ([pscustomobject]@{ where = $Where; path = $lnk; exists = (Test-Path -LiteralPath $lnk); other = [bool]$other })

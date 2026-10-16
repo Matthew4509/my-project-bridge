@@ -36,6 +36,7 @@ function report(r) {
     const name = setup.NAMES[x.where];
     if (x.error) say('  x ' + name + ': ' + x.error);
     else if (x.dryRun) say('  - ' + name + ': test copy, not changed (' + x.dryRun + ')');
+    else if (x.other) say('  - ' + name + ': left alone, it starts another copy of My Project Bridge');
     else say('  ' + (x.exists ? 'OK ' + name + (x.path ? ' (' + x.path + ')' : '') : 'OK ' + name + ' removed'));
   }
 }
@@ -76,7 +77,7 @@ async function uninstall() {
   report(r);
   const s = await setup.status();
   say('');
-  say('My Project Bridge is switched off and its links are gone. Its files are still in');
+  say('My Project Bridge is switched off and its links are gone' + (r.results.some(x => x.other) ? ' (except those that start another copy, above)' : '') + '. Its files are still in');
   say('  ' + s.folder);
   say('Delete that folder to remove it completely (your settings, audits and prompts are in its data folder).');
   return r.errors.length ? 1 : 0;

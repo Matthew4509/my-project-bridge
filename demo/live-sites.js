@@ -26,7 +26,8 @@ for (const s of cfg.sites) {
       res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end('<!DOCTYPE html><html><head><title>Access Denied</title></head><body><h1>Access Denied</h1><p>Your request was blocked by the security rules of this server.</p></body></html>');
     }
-    let rel = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+    let rel;
+    try { rel = decodeURIComponent(new URL(req.url, 'http://x').pathname); } catch { res.writeHead(400, HEADERS); return res.end('Bad address'); }
     if (rel.endsWith('/')) rel += 'index.html';
     const file = path.join(root, path.normalize(rel));
     if (!file.startsWith(root + path.sep)) { res.writeHead(403, HEADERS); return res.end('Forbidden'); }

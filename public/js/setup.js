@@ -1,6 +1,7 @@
 // About › Setup (Run setup again) and Uninstall: the same three things install.cmd sets up — the Load Bridge link,
 // the desktop shortcut and Start with Windows — changed from inside the Bridge.
 'use strict';
+const NAMES = { link: 'Load Bridge link', desktop: 'desktop shortcut', startup: 'Start with Windows' };
 
 let setupState = null;
 const SETUP_ITEMS = [
@@ -44,7 +45,9 @@ $('btn-setup').addEventListener('click', async () => {
       closeDialog();
       setupState = r.status; renderSetup();
       const dry = r.results.filter(x => x.dryRun).map(x => x.dryRun);
-      info(dry.length ? 'Test copy, nothing changed: ' + dry.join('; ') + '.' : 'Setup done: ' + SETUP_ITEMS.filter(([k]) => k in body).map(([k, name]) => name + (body[k] ? ' on' : ' off')).join(', ') + '.');
+      const kept = r.results.filter(x => x.other).map(x => NAMES[x.where]);
+      info(dry.length ? 'Test copy, nothing changed: ' + dry.join('; ') + '.' : 'Setup done: ' + SETUP_ITEMS.filter(([k]) => k in body).map(([k, name]) => name + (body[k] ? ' on' : ' off')).join(', ') + '.'
+        + (kept.length ? ' Left alone, because they start another copy of the Bridge: ' + kept.join(', ') + '.' : ''));
       loadShortcuts();
     } catch (e) { err.textContent = e.message; ok.disabled = false; }
   } }, 'Apply');
@@ -65,12 +68,13 @@ $('btn-uninstall').addEventListener('click', async () => {
       const r = await api('/api/uninstall', {});
       if (!r.ok) { closeDialog(); return info(r.error, true); }
       const dry = r.results.filter(x => x.dryRun).map(x => x.dryRun);
+      const kept = r.results.filter(x => x.other).map(x => NAMES[x.where]);
       // The Bridge is stopping: the page is replaced whole (as Quit does), so the Connection lost bar, whose
       // Re-establish link the uninstall just removed, cannot appear behind a dialog. A browser may refuse window.close().
       closeDialog();
       document.body.replaceChildren(h('div', { class: 'empty', style: 'margin:40px' },
         h('h2', null, 'My Project Bridge is uninstalled'),
-        dry.length ? h('p', null, 'Test copy, nothing on Windows changed: ' + dry.join('; ') + '.') : h('p', null, 'The desktop shortcut, Start with Windows and the Load Bridge link are gone, and the Bridge has stopped.'),
+        dry.length ? h('p', null, 'Test copy, nothing on Windows changed: ' + dry.join('; ') + '.') : h('p', null, 'The desktop shortcut, Start with Windows and the Load Bridge link are gone, and the Bridge has stopped.' + (kept.length ? ' Left alone, because they start another copy of the Bridge: ' + kept.join(', ') + '.' : '')),
         h('p', null, 'Its files are still in ', h('b', null, r.folder), '. Delete that folder to remove it completely; its data folder holds your settings, audits and prompts, so keep a copy of anything you want.'),
         h('p', { class: 'muted', style: 'font-size:13px' }, 'Changed your mind? Double-click install.cmd in that folder.'),
         h('p', null, 'You can close this window.')));

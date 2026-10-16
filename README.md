@@ -26,7 +26,8 @@ first, double-click **`start-demo.cmd`**.
 - **Windows only** for now.
 - **The audit is a quick check**, not a full security test: a clean audit means "no common faults found", not "safe".
 - **Its only requests off your PC** go to the live addresses you add (plus a DNS lookup for them when you scan), and
-  a Git version check only if you tick it.
+  a Git version check only if you tick it. Site pictures load your local pages as a browser would, with any fonts
+  or scripts they load from the internet.
 - **Meant for a PC with one Windows user.**
 - **To remove it:** `uninstall.cmd`, then delete the folder. Neither touches your projects.
 

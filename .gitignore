@@ -23,5 +23,5 @@ desktop.ini
 .DS_Store
 .vscode/
 .idea/
-# AI tool settings (the preview's launch.json): they name the tool the Bridge was built with, so they stay on this PC.
+# Editor and tool settings kept on this PC.
 .claude/

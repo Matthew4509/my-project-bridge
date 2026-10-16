@@ -155,6 +155,23 @@ const save = (d, file, text) => { fs.writeFileSync(path.join(d, file), text); gi
     assert(!a.ok && /not in git/.test(a.error) && !b.ok && /could run a program/.test(b.error), JSON.stringify([a, b]));
   });
 
+  await check('a setting that could run a program counts wherever git reads it, not only at the start of a line', async () => {
+    const spellings = { header: '[user] [filter "x"] clean = made-up\n', cr: '[core]\r[filter "y"]\rsmudge = made-up\n', key: '[core] fsmonitor = made-up\n' };
+    for (const [name, text] of Object.entries(spellings)) {
+      const d = path.join(tmp, 'spelling-' + name);
+      fs.mkdirSync(path.join(d, '.git'), { recursive: true });
+      fs.writeFileSync(path.join(d, '.git', 'config'), text);
+      assert(gitConfigRisky(d), name);
+    }
+  });
+  await check('git reads only the folder\'s own .git: a .git that is not a repository is an error, not the folder itself', async () => {
+    const d = path.join(tmp, 'own-git');
+    require('child_process').execFileSync('git', ['init', '--bare', '-q', d]);
+    fs.mkdirSync(path.join(d, '.git'));
+    const r = await gitState(d);
+    assert.strictEqual(r.state, 'error', JSON.stringify(r));
+  });
+
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log(failures ? failures + ' FAILED' : 'all passed');
   process.exit(failures ? 1 : 0);

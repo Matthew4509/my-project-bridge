@@ -17,7 +17,8 @@ const HEADERS = {
 };
 
 http.createServer((req, res) => {
-  let rel = decodeURIComponent(new URL(req.url, 'http://127.0.0.1').pathname);
+  let rel;
+  try { rel = decodeURIComponent(new URL(req.url, 'http://127.0.0.1').pathname); } catch { res.writeHead(400, HEADERS); return res.end('Bad address'); }
   if (rel.endsWith('/')) rel += 'index.html';
   const file = path.join(root, path.normalize(rel));
   if (!file.startsWith(root + path.sep)) { res.writeHead(403, HEADERS); return res.end('Forbidden'); }

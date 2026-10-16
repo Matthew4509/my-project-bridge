@@ -127,6 +127,52 @@ async function main() {
     if (r.error && /ENOTFOUND|EAI_AGAIN/.test(r.error.code)) return console.log('     (offline: name not resolved; checked the address test instead)'), assert(live.isPrivateIp('127.0.0.1') && live.isPrivateIp('::ffff:192.168.0.4') && live.isPrivateIp('fd00::1') && !live.isPrivateIp('93.184.216.34'));
     assert(r.error && r.error.code === 'BLOCKED', JSON.stringify(r.error));
   });
+  await check('S11: an IPv6 address carrying an IPv4 one is judged by the IPv4 address', () => {
+    for (const a of ['::ffff:127.0.0.1', '::ffff:7f00:1', '0:0:0:0:0:ffff:7f00:1', '::ffff:a00:1', '::ffff:c0a8:104', '::7f00:1', '64:ff9b::7f00:1', 'fe80::1%12'])
+      assert(live.isPrivateIp(a), a + ' should count as private');
+    for (const a of ['::ffff:5db8:d822', '64:ff9b::808:808', '2606:2800:220:1:248:1893:25c8:1946']) assert(!live.isPrivateIp(a), a + ' should count as public');
+  });
+  // In a child process over its own data folder, so nothing here reads or writes the real Bridge's data.
+  const inChild = lines => {
+    const r = spawnSync(NODE, ['-e', lines.join(' ')], { cwd: path.join(__dirname, '..'), env: { ...process.env, BRIDGE_DRYRUN: '1', BRIDGE_DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-robust-child-')), BRIDGE_ROOT: WS }, encoding: 'utf8', timeout: 20000 });
+    try { return JSON.parse(r.stdout.trim().split(/\r?\n/).pop()); } catch { throw new Error(r.stdout + r.stderr); }
+  };
+  await check('S12: Stop, then Run again while the first start checks its port: only the new start counts', () => {
+    const o = inChild([
+      "const ports = require('./lib/ports'); const waits = []; ports.portBusy = () => new Promise(r => waits.push(r));",
+      "const runner = require('./lib/runner'); const { state } = require('./lib/state');",
+      "const p = { id: 'made-up', name: 'Made-up', dir: process.cwd(), commands: [{ key: '0', name: 'dev', exe: process.execPath, args: ['-e', ''], port: 1, from: 'test' }] };",
+      '(async () => {',
+      "  const a = runner.startProject(p, '0', false); runner.stopProject(p.id);",
+      "  const b = runner.startProject(p, '0', false); const placeB = state.running.get(p.id);",
+      '  waits[0](false); const ra = await a; const kept = state.running.get(p.id) === placeB;',
+      '  waits[1](true); const rb = await b;',
+      '  console.log(JSON.stringify({ ra, kept, rb, left: state.running.size, waits: waits.length }));',
+      '})();']);
+    assert(!o.ra.ok && /stopped before it started/.test(o.ra.error), 'first start: ' + JSON.stringify(o.ra));
+    assert(o.kept, 'the first start left the new start in place');
+    assert(o.rb.portInUse === 1 && o.left === 0 && o.waits === 2, JSON.stringify(o));
+  });
+  await check('S13: picture downloads stop at their size limit', () => {
+    const o = inChild([
+      "const { readUpTo } = require('./lib/snaps');",
+      '(async () => {',
+      "  const page = await readUpTo(new Response('x'.repeat(2000000)), 200000, true);",
+      "  const big = await readUpTo(new Response(Buffer.alloc(2000000), { headers: { 'content-type': 'image/png' } }), 512 * 1024, false);",
+      '  let pulls = 0; const endless = new ReadableStream({ pull(c) { pulls++; c.enqueue(new Uint8Array(65536)); } });',
+      '  const cut = await readUpTo(new Response(endless), 512 * 1024, false);',
+      "  const small = await readUpTo(new Response(Buffer.from('icon')), 512 * 1024, false);",
+      '  console.log(JSON.stringify({ page: page.length, big, cut, pulls, small: small.toString() }));',
+      '})();']);
+    assert(o.page === 200000 && o.big === null && o.cut === null && o.small === 'icon', JSON.stringify(o));
+    assert(o.pulls < 20, 'read ' + o.pulls + ' chunks of an endless reply');
+  });
+  await check('S14: a request for a hosted site never goes to this PC or the home network', async () => {
+    for (const u of ['http://127.0.0.1:9/', 'https://192.168.1.1/x.html', 'http://localhost:9/', 'https://[::1]/', 'https://[::ffff:7f00:1]/', 'http://100.64.0.1/']) {
+      const r = await live.get(u, { publicOnly: true, timeout: 2000 });
+      assert(r.error && r.error.code === 'BLOCKED', u + ': ' + JSON.stringify(r.error || r.status));
+    }
+  });
 
   // ---- 4. A test copy of the Bridge over this folder ----
   const pA = await freePort(), pAlt1 = await freePort(), pAlt2 = await freePort();

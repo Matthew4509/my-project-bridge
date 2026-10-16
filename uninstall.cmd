@@ -20,8 +20,9 @@ if defined BRIDGE_LINK_KEY set "LINK_KEY=%BRIDGE_LINK_KEY%"
 reg delete "%LINK_KEY%" /f >nul 2>&1
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0lib\platform\windows\shortcut.ps1" -Where desktop -Action remove >nul
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0lib\platform\windows\shortcut.ps1" -Where startup -Action remove >nul
-echo  The Load Bridge link, the desktop shortcut and Start with Windows are removed.
-echo  My Project Bridge's files are still in %~dp0
+echo  The Load Bridge link, the desktop shortcut and Start with Windows are removed,
+echo  except a shortcut that starts another copy of the Bridge.
+echo  My Project Bridge's files are still in "%~dp0"
 echo  Delete that folder to remove it completely.
 
 :done

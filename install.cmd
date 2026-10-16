@@ -29,7 +29,7 @@ if errorlevel 1 (
 if /i "%BRIDGE_INSTALL_NO_START%"=="1" exit /b 0
 echo.
 echo  Starting the Bridge...
-start "" "%~dp0start-bridge.cmd"
+start "" "%ComSpec%" /d /c .\start-bridge.cmd
 exit /b 0
 
 :old_node

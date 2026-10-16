@@ -16,7 +16,8 @@ Everything in detail. The short version is in [README.md](README.md).
 1. Download the zip from the repository's **Releases** page and unzip the `my-project-bridge` folder. Cloning the
    repository gives the same files plus the git history. The best place is **inside the folder that holds your
    projects** (for example `C:\Users\you\projects\my-project-bridge`): on its first start the Bridge lists the folders
-   next to it. Unzipped into Downloads, Desktop or Documents, it starts with an empty list and offers **Add a
+   next to it. Windows' **Extract All** adds a folder named after the zip around it; a folder holding only the Bridge
+   is passed over, and the folder above it is listed. Unzipped into Downloads, Desktop or Documents, it starts with an empty list and offers **Add a
    working folder**. Unzipped into any other folder, it lists the folders next to it: if those are not your
    projects, open **Folders**, remove that working folder and add yours.
 2. Double-click **`install.cmd`**. If Windows says "Windows protected your PC", choose **More info › Run anyway**
@@ -320,7 +321,7 @@ audit lists the record of every rule it shows that someone has judged.
   It also reads file and folder names and zip entry names (a detail in a name is printed as its label), Word, Excel
   and PowerPoint files, UTF-16 text, details written encoded (`%40`, `&#64;`, `@` for @) and minified files up
   to 16 MB (long lines in slices). What it cannot read (PDFs, databases, `.tar.gz`, files over 16 MB) is named in a
-  note, never passed over silently. Zips are unpacked up to 300 MB / 20,000 entries per scan, so a "zip bomb" stops
+  note, never passed over silently. Zips are unpacked up to 300 MB / 20,000 entries per scan (50,000 listed), so a "zip bomb" stops
   with a note instead of freezing the Bridge.
 - The code rules leave out `node_modules`, `.git`, `vendor`, build and release copies, and test folders.
 - **Old copies of the app** inside a project folder are left out too, so a fault is counted once, where the app
@@ -414,11 +415,32 @@ audit lists the record of every rule it shows that someone has judged.
 
 Open an issue on this repository's **Issues** page: what you did, what you expected, and what happened, with the
 version from **About**. Please leave out your own folder paths, project names and private details. Copy faults and
-the audit already show labels instead of your details.
+the audit show labels instead of your private details, but they do name the project and its files: read the text
+before you paste it.
 
 ## What's new in 0.1.06
 
 - A short README, with every detail moved to this user guide.
+- The Bridge starts from a folder whose name holds `&`, from the shortcuts, Start with Windows and the Load Bridge
+  link as well.
+- Unzipped with Windows' Extract All, the first start lists your projects folder, not the folder named after the zip.
+- Uninstalling one copy of the Bridge leaves another copy's desktop shortcut, Start with Windows and Load Bridge link
+  alone, and says which it left.
+- Run, Stop and Run again in quick succession starts the project once, and the second start is the one that counts.
+- Open terminal here works for a folder with `;` in its name.
+- Audits stay quick on unusual files (very long lines, pages full of tags or form fields, zips that list a great many
+  files), and one scan reads at most 150 MB of code, with a note when it stops there.
+- A place set aside as **Not a fault** no longer hides a later finding of the same rule in that file, and a
+  private-detail finding comes back when another detail is added to the file.
+- The judged list, the fault lists and the private-details list are saved whole or not at all; one that cannot be read
+  is kept aside in the data folder, and the next audit says so.
+- A project's own `project.json` that leaves folders out of the scan is named in full, and the check for private
+  details still reads those folders.
+- Import report-back stays quick on any text pasted in.
+- A live address on this PC or your own network is refused when you add it, whatever way the address is written.
+- The hidden browser that takes site pictures makes no background requests of its own.
+- Picture capture reads at most what it keeps of a page or an icon.
+- The demo's made-up sites answer a malformed address with an error instead of stopping.
 
 ## What's new in 0.1.05
 
