@@ -20,12 +20,12 @@ const under = (dir, ok) => fs.readdirSync(path.join(HERE, dir), { withFileTypes:
   e.isDirectory() ? under(dir + '/' + e.name, ok) : ok(e.name) ? [dir + '/' + e.name] : []);
 // .gitignore ships too: unzipped inside a git repository, the Bridge's data/ (private details in plain text) must not
 // be offered for a commit.
-const SHIP = ['server.js', 'index.html', 'start-bridge.cmd', 'install.cmd', 'uninstall.cmd', 'start-demo.cmd', 'README.md', 'DEVELOPERS.md', 'LICENSE', 'projects.example.json', '.gitignore',
+const SHIP = ['server.js', 'index.html', 'start-bridge.cmd', 'install.cmd', 'uninstall.cmd', 'start-demo.cmd', 'README.md', 'USER-GUIDE.md', 'DEVELOPERS.md', 'LICENSE', 'projects.example.json', '.gitignore',
   'test/audit.test.js', 'test/live.test.js', 'test/gitstate.test.js', 'test/sensors.test.js', 'test/tokens.test.js', 'test/setup.test.js', 'test/disclosure.test.js', 'test/judged.test.js', 'test/server.test.js', 'test/snapshot.test.js', 'test/robust.test.js', 'test/roots.test.js', 'test/museum.test.js', 'test/rules-more.test.js', 'test/cross.test.js', 'test/live-more.test.js', 'test/review.test.js', 'test/severity.test.js', 'tools/disclose.js', 'tools/calibrate.js', 'tools/make-icon.js', 'tools/bench.js', 'tools/benchmark.js', 'tools/setup.js',
   'demo/demo.js', 'demo/site.js', 'demo/live-sites.js',
   ...under('lib', f => /\.(js|ps1)$/.test(f)), ...under('test/museum', f => /\.(js|json)$/.test(f)), ...under('public', f => /^(index\.html|bridge\.ico|[\w-]+\.(css|js))$/.test(f))];
 const EMPTY_PROJECTS = {
-  note: 'The Bridge\'s own list of names, descriptions and live addresses, keyed by project folder name. Nothing here is written into any project\'s folder. See README.md, "Names and descriptions".',
+  note: 'The Bridge\'s own list of names, descriptions and live addresses, keyed by project folder name. Nothing here is written into any project\'s folder. See USER-GUIDE.md, "Names and descriptions".',
 };
 
 const out = path.join(HERE, '_releases');

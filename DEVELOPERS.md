@@ -1,6 +1,6 @@
 # My Project Bridge: for developers
 
-How to test the Bridge and where its code lives. For what it does and how to use it, see [README.md](README.md).
+How to test the Bridge and where its code lives. For what it does, see [README.md](README.md); for how to use it, [USER-GUIDE.md](USER-GUIDE.md).
 
 ## Tests and tools
 
