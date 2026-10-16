@@ -208,6 +208,30 @@ async function main() {
       assert(!s.ok && /Could not start/.test(s.error), JSON.stringify(s));
       assert(Date.now() - t < 8000, 'took ' + (Date.now() - t) + ' ms');
     });
+    await check('S3: a program that ends at once is reported at once, with its exit code, not after 20 s', async () => {
+      make('ends-at-once', { '.claude/launch.json': launch({ name: 'x', runtimeExecutable: NODE, runtimeArgs: ['-e', 'process.exit(3)'], port: await freePort() }) });
+      const t = Date.now();
+      const s = (await api('/api/start', { id: await idOf('ends-at-once'), key: '0', open: false })).json;
+      assert(!s.ok && /ended by itself/.test(s.error) && /exit code 3/.test(s.error), JSON.stringify(s));
+      assert(Date.now() - t < 6000, 'took ' + (Date.now() - t) + ' ms');
+      assert(!(await list()).find(p => p.folder === 'ends-at-once').running, 'still shown as running');
+    });
+    await check('U3: a character split between two network chunks comes through whole', async () => {
+      const { readBody } = require('../lib/http');
+      const { EventEmitter } = require('events');
+      const req = new EventEmitter();
+      const bytes = Buffer.from(JSON.stringify({ text: 'café — ok' }), 'utf8');
+      const cut = bytes.indexOf(Buffer.from('é', 'utf8')) + 1; // between the two bytes of é
+      const p = readBody(req, 1000);
+      req.emit('data', bytes.subarray(0, cut)); req.emit('data', bytes.subarray(cut)); req.emit('end');
+      assert.strictEqual((await p).text, 'café — ok');
+    });
+    await check('U4: projects.json keys match a folder in any letter case', async () => {
+      const ovf = path.join(WS, 'overrides-case.json');
+      fs.writeFileSync(ovf, JSON.stringify({ projects: { 'GOOD': { name: 'Good Named' } } }));
+      const rows = listProjects({ workingFolders: [WS], extraProjects: [], hidden: [], known: [], hiddenView: [], order: [] }, { overridesFile: ovf });
+      assert.strictEqual((rows.find(p => p.folder === 'good') || {}).name, 'Good Named');
+    });
     await check('U1: an added project whose folder is gone can be taken off by its path', async () => {
       const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-robust-added-'));
       assert((await api('/api/projects/add', { path: elsewhere })).json.ok);

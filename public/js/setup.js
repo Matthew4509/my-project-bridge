@@ -65,11 +65,15 @@ $('btn-uninstall').addEventListener('click', async () => {
       const r = await api('/api/uninstall', {});
       if (!r.ok) { closeDialog(); return info(r.error, true); }
       const dry = r.results.filter(x => x.dryRun).map(x => x.dryRun);
-      dialog('My Project Bridge is uninstalled', [
+      // The Bridge is stopping: the page is replaced whole (as Quit does), so the Connection lost bar, whose
+      // Re-establish link the uninstall just removed, cannot appear behind a dialog. A browser may refuse window.close().
+      closeDialog();
+      document.body.replaceChildren(h('div', { class: 'empty', style: 'margin:40px' },
+        h('h2', null, 'My Project Bridge is uninstalled'),
         dry.length ? h('p', null, 'Test copy, nothing on Windows changed: ' + dry.join('; ') + '.') : h('p', null, 'The desktop shortcut, Start with Windows and the Load Bridge link are gone, and the Bridge has stopped.'),
         h('p', null, 'Its files are still in ', h('b', null, r.folder), '. Delete that folder to remove it completely; its data folder holds your settings, audits and prompts, so keep a copy of anything you want.'),
-        h('p', { class: 'muted', style: 'font-size:13px' }, 'Changed your mind? Double-click install.cmd in that folder.')],
-        [h('button', { class: 'btn accent', type: 'button', onclick: () => window.close() }, 'Close the window')]);
+        h('p', { class: 'muted', style: 'font-size:13px' }, 'Changed your mind? Double-click install.cmd in that folder.'),
+        h('p', null, 'You can close this window.')));
     } catch (e) { closeDialog(); info(e.message, true); }
   } }, 'Uninstall');
   dialog('Uninstall My Project Bridge?', [

@@ -76,7 +76,7 @@ const tokensCounting = () => stats && stats.tokensBusy && !stats.tokensAt;
 
 function auditLabel(a) {
   if (!a) return null;
-  const c = a.counts, when = fmtWhen(Date.parse(a.ranAt));
+  const c = a.counts || {}, when = fmtWhen(Date.parse(a.ranAt));
   if (c.Critical || c.High) return { cls: 'a-bad', text: '▲ ' + [c.Critical && c.Critical + ' Critical', c.High && c.High + ' High'].filter(Boolean).join(', '), when };
   if (c.Medium) return { cls: 'a-warn', text: '■ ' + c.Medium + ' Medium', when };
   return { cls: 'a-ok', text: '✓ Passed', when };
@@ -110,11 +110,11 @@ function renderLost() {
   if (!lost) uplinkEnd();
   $('lostbar').hidden = !lost; $('nav-restart').hidden = !lost;
   if (!lost) return;
-  const dry = (stats && stats.dryRun) || (stats && stats.demo), waiting = restartAt && Date.now() - restartAt < 15000;
+  const demo = stats && stats.demo, dry = !demo && stats && stats.dryRun, waiting = restartAt && Date.now() - restartAt < 15000;
   const link = label => h('a', { class: 'btn accent', id: 'lost-link', href: START_LINK, onclick: restartBridge }, icon(0xE72C), label);
   let text, act = null;
   if (dry) text = 'This test copy stopped. Start it again with: node server.js --dry-run --port=' + location.port + ' (this page reconnects by itself).';
-  else if (stats && stats.demo) text = 'The demo stopped. Start it again with start-demo.cmd (this page reconnects by itself).';
+  else if (demo) text = 'The demo stopped. Start it again with start-demo.cmd (this page reconnects by itself).';
   else if (waiting) { text = 'Starting the Bridge… If Windows or Edge asks to open My Project Bridge, choose Open. This page reconnects by itself.'; act = h('button', { class: 'btn', type: 'button', disabled: true }, 'Starting…'); }
   else if (restartAt) { text = 'It did not answer. Double-click start-bridge.cmd' + (stats && stats.home ? ' in ' + stats.home : '') + ', or the My Project Bridge icon on your desktop; this page reconnects by itself.'; act = link('Try again'); }
   else { text = 'The Bridge stopped answering, so what you see may be out of date.'; act = link('Re-establish connection'); }

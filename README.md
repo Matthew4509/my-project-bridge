@@ -1,4 +1,4 @@
-# My Project Bridge 0.1.04 (Windows)
+# My Project Bridge 0.1.05 (Windows)
 
 **All your projects in one window.** A free Windows app for people who keep several websites or web apps on their
 PC, especially people who build them with AI coding tools such as Claude Code or Codex.
@@ -426,6 +426,29 @@ audit lists the record of every rule it shows that someone has judged.
 Open an issue on this repository's **Issues** page: what you did, what you expected, and what happened, with the
 version from **About**. Please leave out your own folder paths, project names and private details. Copy faults and
 the audit already show labels instead of your details.
+
+## What's new in 0.1.05
+
+- A local copy that ends by itself is reported at once, with its exit code, instead of after 20 seconds; Stop
+  during a start takes effect at once; two clicks on Run local copy start it once.
+- Saved prompts and imported tables keep every character whole (a character split between two network packets
+  came through damaged).
+- Adding a working folder during the start-up token count no longer leaves the new projects at 0 tokens; a Recount
+  pressed during a count runs after it.
+- Scan folders, Add working folder and Add project no longer hold the Bridge while the folders are read, so the page
+  does not show Connection lost meanwhile.
+- Quit while a site picture is being taken also closes the hidden browser taking it.
+- Tokens this month follow this PC's calendar month, not UTC.
+- Not a fault, Bring back and Import report-back refresh the project's audit chip and the Audits page at once.
+- The Hosted live window shows Check now, Open live site and Remove address right after an address is added.
+- Windows between 820 and 1150 pixels wide show each project on one column instead of squeezing the name out.
+- A tick box is never the first thing a dialog focuses (Enter there would have submitted at once).
+- The … menu gives the focus back to its button on Escape and closes when the focus leaves it; Move up and Move
+  down swap with the neighbour you can see.
+- `projects.json` keys match a folder in any letter case; a port given as `--port=abc` stops with the reason instead
+  of leaving a Bridge running with nothing listening; a second Bridge started over the same data folder says where
+  the first one is; a save refused for a moment by a virus scanner is tried again.
+- The demo's Quit and Connection lost messages no longer offer the real Bridge's link.
 
 ## What's new in 0.1.04
 

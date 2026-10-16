@@ -24,7 +24,7 @@ node -e "require('./lib/platform').link('create', process.cwd())" >nul 2>&1
 set BRIDGE_OPEN=1
 if /i "%~2"=="quiet" set BRIDGE_OPEN=0
 node server.js
-if errorlevel 1 pause
+if errorlevel 1 if /i not "%~2"=="quiet" pause
 exit /b
 
 :no_node

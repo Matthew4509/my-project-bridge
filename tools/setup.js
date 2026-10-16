@@ -51,10 +51,20 @@ async function install() {
   report(r);
   if (r.errors.length) { say(''); say('Not everything could be set up. The Bridge still works: start it with start-bridge.cmd.'); return 1; }
   // Both questions are answered here, so the Bridge's Welcome window (the same two, offered ticked) is not asked again.
+  // A Bridge already running keeps its settings in memory and would write them back over the file, so it is told
+  // through its own API; otherwise the file is marked.
   try {
     const cfg = require('../lib/config'), settings = require('../lib/settings');
-    const s = settings.load(cfg.SETTINGS_FILE, cfg.DEFAULT_ROOT);
-    if (!s.welcomed) { s.welcomed = true; settings.save(cfg.SETTINGS_FILE, s); }
+    let told = false;
+    try {
+      const run = JSON.parse(require('fs').readFileSync(cfg.RUN_FILE, 'utf8'));
+      const res = await fetch('http://127.0.0.1:' + run.port + '/api/welcome', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Bridge-Key': run.key }, body: '{}', signal: AbortSignal.timeout(3000) });
+      told = res.ok;
+    } catch {}
+    if (!told) {
+      const s = settings.load(cfg.SETTINGS_FILE, cfg.DEFAULT_ROOT);
+      if (!s.welcomed) { s.welcomed = true; settings.save(cfg.SETTINGS_FILE, s); }
+    }
   } catch {}
   return 0;
 }
