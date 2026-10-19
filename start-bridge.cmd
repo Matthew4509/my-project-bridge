@@ -25,8 +25,12 @@ rem The link is registered by the Bridge's own code (lib/platform), which hands 
 rem a folder name with & or ^ in it can never break out into a command here.
 node -e "require('./lib/platform').link('create', process.cwd())" >nul 2>&1
 set BRIDGE_OPEN=1
+rem An update (About > Updates) knows this window is the Bridge's own, so it can close it if it stays open.
+set BRIDGE_CONSOLE=1
 if /i "%~2"=="quiet" set BRIDGE_OPEN=0
 node server.js
+rem 75: the Bridge handed over to an update, which needs this window closed (it holds the Bridge's folder).
+if errorlevel 75 if not errorlevel 76 exit
 if errorlevel 1 if /i not "%~2"=="quiet" pause
 exit /b
 

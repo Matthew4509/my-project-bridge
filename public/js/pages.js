@@ -14,7 +14,7 @@ function show(page) {
   if (base === 'folders') loadFolders();
   if (base === 'audits') renderAudits();
   if (base === 'prompts') { let cat = ''; try { cat = sub ? decodeURIComponent(sub) : ''; } catch {} loadPrompts(cat); } // a mistyped %-escape opens the tiles
-  if (base === 'about') { loadShortcuts(); loadSetup(); loadGitProgram(); }
+  if (base === 'about') { loadShortcuts(); loadSetup(); loadGitProgram(); loadUpdate(); }
 }
 
 // ---- First start: one click, and the Bridge runs itself from then on (starting a server by hand is where many

@@ -166,7 +166,34 @@ binary files and very big changes are named, not shown. Read only: it saves, und
 - **About:** version, **Theme** (Orbital, Windows, Light, Dark), **Desktop shortcut** (Add, **Show me**, **Make a
   new one**, Remove), **Start with Windows**, **Setup** (Node.js version and **Run setup again**), **Git** (your Git
   version, a warning when it is older than the last security fix this Bridge knows about, and **Check online for a
-  newer Git**, off until you tick it), **Quit** and **Uninstall**.
+  newer Git**, off until you tick it), **Updates** (below), **Quit** and **Uninstall**.
+
+### Updates
+
+**About › Updates** keeps the Bridge up to date. Nothing is asked of GitHub until you press a button.
+
+- **Check for updates** asks GitHub for the newest release. If it is newer, **Download and check** brings down its
+  zip and its signature, and the zip is used only if the signature is the Bridge's maker's: a download that fails
+  the check is refused, with the reason. Until the Bridge's repository on GitHub is public, Check for updates says
+  so; use Update from a zip meanwhile.
+- **Update from a zip…** takes a `my-project-bridge-<version>.zip` you downloaded or were given. Keep its signature
+  file (`my-project-bridge-<version>.zip.sig`) beside it. A zip with no signature, or one that does not check out,
+  gets a red warning that says what is wrong; **Cancel** is the default, and **Install anyway** is there for a zip you
+  trust (one you made yourself, say).
+- **Install** first starts the new version once as a test copy on a spare port. Only if it comes up does the Bridge
+  close, put the new version in its own folder (so shortcuts, Start with Windows and the Load Bridge link keep
+  working), move your `data` folder, `projects.json` and any files of your own across, and start again; the window
+  reloads by itself. If anything goes wrong on the way, every folder is put back and the old version starts again,
+  and About says what happened. Your local copies stop with the Bridge.
+- The version you had stays beside the new one (a folder named `.<Bridge folder>.old-<version>`, which the Bridge
+  does not list as a project). **Switch to <version>** goes back to it the same way; **Remove it…** moves it to the
+  Recycle Bin.
+- **A Bridge that is a git clone** checks the signed release tags at the Bridge's own GitHub address (never the
+  address in the folder's git settings). It takes a new version only when nothing you track was changed here and it
+  is a straight step forward; git then moves the folder to that exact signed commit, and the Bridge restarts.
+  **Go back** moves it back to where it was.
+- Close any terminal or editor that has the Bridge's own folder open before you install: Windows will not move a
+  folder that a program is working in, and the update is then put back with that reason.
 
 **Connection lost:** if the Bridge stops while its window is open, a red bar and a **Restart Bridge** item appear.
 **Re-establish connection** starts it again (Edge may ask to open My Project Bridge: choose Open), and the page reloads
@@ -363,7 +390,10 @@ audit lists the record of every rule it shows that someone has judged.
     domain's DMARC mail record), and for the live-vs-local compare up to four pages and the scripts they load, paced
     5 seconds apart;
   - only if you tick **About > Git > Check online for a newer Git**: one request a day to GitHub for the newest Git
-    for Windows version (off until you tick it).
+    for Windows version (off until you tick it);
+  - only when you press **About > Updates > Check for updates**: one request to GitHub for the Bridge's newest
+    release (a clone asks the Bridge's GitHub address for its release tags instead), and, only if you then choose to
+    download it, that release's zip and signature. Nothing about you goes with it.
 - **A shared PC:** the Bridge is meant for a PC with one Windows user. Another program, or another Windows account
   on the same PC, can open <http://127.0.0.1:8484/> while it runs and use it as you can (including starting a
   project's start command), so do not run it on a PC you share with people you do not trust. A web page you visit can
@@ -407,7 +437,7 @@ audit lists the record of every rule it shows that someone has judged.
   browser, a terminal or a folder, shortcuts, the folder picker and the Load Bridge link are "not available yet"
   there, and there are no site pictures. It has not been tested.
 - **Does it change my projects?** No. It never writes into a project's folder and never runs git commands that
-  change anything. It only starts the start commands stored in each project's own files when you click
+  change anything there. The one exception is its own folder, when you install an update (About > Updates). It only starts the start commands stored in each project's own files when you click
   **Run local copy**.
 - **How do I remove it?** `uninstall.cmd` (or **About > Uninstall**), then delete the `my-project-bridge` folder.
 
@@ -417,6 +447,12 @@ Open an issue on this repository's **Issues** page: what you did, what you expec
 version from **About**. Please leave out your own folder paths, project names and private details. Copy faults and
 the audit show labels instead of your private details, but they do name the project and its files: read the text
 before you paste it.
+
+## What's new in 0.1.08
+
+- **About › Updates:** Check for updates, Update from a zip…, and switching back to the version you had. Only an
+  update signed by the Bridge's maker installs without a warning; each one is started once as a test before it
+  takes over.
 
 ## What's new in 0.1.07
 

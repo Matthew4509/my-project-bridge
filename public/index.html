@@ -157,7 +157,7 @@
         <h2 id="help-gitprog">Keeping Git itself up to date</h2>
         <p>Old versions of the Git program had security holes that a single <code>git clone</code> of a bad repository could set off. <b>About › Git</b> shows your version and warns when it is older than the last security fix this Bridge knows about. To update: <code>winget upgrade --id Git.Git -e</code>, or download it from git-scm.com. Ticking <b>Check online for a newer Git</b> lets the Bridge ask GitHub once a day for the newest version; until you tick it, it asks nothing.</p>
         <h2 id="help-privacy">What leaves this PC</h2>
-        <p>Nothing about you or your projects, and never your code: the Bridge sends nothing to an AI. What it asks off this PC: plain page requests to the live addresses you add under Hosted live (and, when you scan such a project, about ten more, one DNS lookup and the live-vs-local pages), and, only if you tick it, one request a day to GitHub for the newest Git version. Site pictures load your local page as your browser would, with any fonts or scripts it loads from the internet. Tokens are counted from the AI transcripts already on this PC; they are read, never changed or sent.</p>
+        <p>Nothing about you or your projects, and never your code: the Bridge sends nothing to an AI. What it asks off this PC: plain page requests to the live addresses you add under Hosted live (and, when you scan such a project, about ten more, one DNS lookup and the live-vs-local pages), and, only if you tick it, one request a day to GitHub for the newest Git version; and, only when you press <b>About › Check for updates</b>, GitHub for a newer Bridge (then, if you choose, its zip and signature). Site pictures load your local page as your browser would, with any fonts or scripts it loads from the internet. Tokens are counted from the AI transcripts already on this PC; they are read, never changed or sent.</p>
         <h2 id="help-trouble">If something goes wrong</h2>
         <ul>
           <li><b>The window says Connection lost</b>: the Bridge stopped. Press <b>Restart Bridge</b>, or double-click start-bridge.cmd.</li>
@@ -176,7 +176,7 @@
     <section class="page" id="page-about" hidden>
       <div class="page-head"><h1>About</h1></div>
       <div class="card">
-        <div class="set-row"><i class="ic">&#xE946;</i><div class="txt"><b id="about-version">My Project Bridge</b><span>Runs only on this PC (127.0.0.1). Nothing about you or your projects is sent anywhere, and nothing to an AI; it asks off this PC only for the live addresses you add under Hosted live (and their checks when you scan), whatever your own local pages load from the internet when their picture is taken, and, only if you tick it under Git below, one request a day to GitHub for the newest Git version. Meant for a PC with one Windows user. It runs only the start commands stored in each project's own files.</span></div></div>
+        <div class="set-row"><i class="ic">&#xE946;</i><div class="txt"><b id="about-version">My Project Bridge</b><span>Runs only on this PC (127.0.0.1). Nothing about you or your projects is sent anywhere, and nothing to an AI; it asks off this PC only for the live addresses you add under Hosted live (and their checks when you scan), whatever your own local pages load from the internet when their picture is taken, and, only if you tick it under Git below, one request a day to GitHub for the newest Git version, and GitHub only when you press Check for updates. Meant for a PC with one Windows user. It runs only the start commands stored in each project's own files.</span></div></div>
         <div class="set-row wrap"><i class="ic">&#xE790;</i><div class="txt"><b>Theme</b><span id="theme-note">Orbital is the space look, with the Orbit view of your running sites. Windows follows your Windows light or dark setting.</span></div>
           <div class="seg theme-seg" role="group" aria-label="Theme" id="theme-seg">
             <button type="button" data-theme-pick="orbital"><span class="swatch" style="background:radial-gradient(circle at 30% 30%,#38bbff,#0a1a2f 70%)"></span>Orbital</button>
@@ -188,6 +188,7 @@
         <div class="set-row"><i class="ic">&#xE823;</i><div class="txt"><b>Start with Windows</b><span id="sc-startup-note">Starts the Bridge quietly when you sign in (no window pops up; open it from the desktop shortcut).</span></div><button class="btn" id="sc-startup" type="button">…</button></div>
         <div class="set-row wrap"><i class="ic">&#xE713;</i><div class="txt"><b>Setup</b><span id="setup-note">…</span></div><button class="btn" id="btn-setup" type="button">Run setup again</button></div>
         <div class="set-row wrap"><i class="ic">&#xE81C;</i><div class="txt"><b>Git</b><span id="git-note">…</span><label class="tick"><input type="checkbox" id="git-online"> Check online for a newer Git (asks GitHub once a day; off until you tick it)</label></div><button class="btn" id="btn-git-help" type="button">How to update</button></div>
+        <div class="set-row wrap"><i class="ic">&#xE777;</i><div class="txt"><b>Updates</b><span id="upd-note">…</span><div id="upd-extra"></div></div><div class="acts-row"><button class="btn" id="btn-upd-zip" type="button">Update from a zip…</button><button class="btn" id="btn-upd-check" type="button">Check for updates</button></div></div>
         <div class="set-row"><i class="ic">&#xE7E8;</i><div class="txt"><b>Quit the Bridge</b><span>Stops the Bridge and every local copy it started. Start it again with start-bridge.cmd.</span></div><button class="btn danger" id="btn-quit">Quit</button></div>
         <div class="set-row"><i class="ic">&#xE74D;</i><div class="txt"><b>Uninstall</b><span>Stops the Bridge and removes its desktop shortcut, Start with Windows and the Load Bridge link. Your files are not deleted.</span></div><button class="btn danger" id="btn-uninstall" type="button">Uninstall…</button></div>
       </div>
@@ -225,6 +226,7 @@
 <script src="js/dialogs.js"></script>
 <script src="js/git.js"></script>
 <script src="js/setup.js"></script>
+<script src="js/update.js"></script>
 <script src="js/private.js"></script>
 <script src="js/actions.js"></script>
 <script src="js/theme.js"></script>

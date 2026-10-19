@@ -60,6 +60,13 @@ How to test the Bridge and where its code lives. For what it does, see [README.m
 - `node test/damaged.test.js`: damaged data files (settings, prompts, a saved audit) are read as far as they make
   sense; one that cannot be read is kept beside the fresh one as `<name>.damaged-<time>.json`, so settings and
   prompts are never lost; a request that is not a JSON object is read as empty.
+- `node test/update.test.js`: signed updates, all in a temp folder with a throwaway key: signatures (another zip,
+  version or key; a new key told apart from a broken one), the bake's key and signing steps, zips that climb out of
+  their folder or unpack to more than they say, a stand-in GitHub on this PC (a download that fails its signature is
+  refused; one picked by hand gets a warning), the test start of a new copy (a broken one stops the install), the
+  folder swap with your data carried across and its roll-back when the folder is held open, the git route against a
+  bare repository (a moved, plain or unsigned tag, changed files, commits of its own), and the About routes through a
+  test copy on port 8489.
 - `node test/snapshot.test.js`: three site pictures in a row all come out and no hidden Edge is left running, even
   one left over from an earlier run (Windows with Microsoft Edge).
 - `node server.js --dry-run --port=8487`: a test copy that reports browser, terminal and folder actions instead of
@@ -80,6 +87,9 @@ How to test the Bridge and where its code lives. For what it does, see [README.m
 | `lib/views.js` | What the page is sent: project rows, the Folders page, This PC |
 | `lib/runner.js` | Starting and stopping local copies; programs holding a project's port |
 | `lib/setup.js`, `tools/setup.js` | Setup and uninstall (Load Bridge link, desktop shortcut, Start with Windows): `install.cmd` / `uninstall.cmd` run `tools/setup.js`, About runs `lib/setup.js` |
+| `lib/release.js` | The release key's public half, what a release is signed as (zip, git tag), and the checks |
+| `lib/update.js`, `lib/update-git.js`, `lib/update-swap.js`, `lib/routes/update.js` | About › Updates: GitHub Releases and zips picked by hand, the git route for a clone, the test start, and the helper that swaps the folders after the Bridge exits |
+| `tools/bake.js`, `tools/sign-release.js` | The shareable zip, signed; the release key; the signed git tag message |
 | `lib/git-program.js` | The Git program's version against the last security fix this build knows; the online check for the newest Git (off until ticked) |
 | `lib/desktop.js` | Browser, terminal, folder windows and shortcuts (reports instead of opening in a test copy) |
 | `lib/platform/` | Every call to the operating system: `windows.js` and its `.ps1` helpers; other systems get `unsupported.js` until they have their own file |
@@ -92,3 +102,23 @@ How to test the Bridge and where its code lives. For what it does, see [README.m
 | `lib/gitstate.js`, `lib/prompts.js`, `lib/prompt-starters.js`, `lib/settings.js`, `lib/sensors.js`, `lib/snapshot.js`, `lib/snaps.js`, `lib/ports.js`, `lib/http.js`, `lib/cli.js` | Git marks, saved prompts and their categories, the starter prompts, settings, GPU use, site pictures, icons, port checks, replies and page files, the command line |
 | `public/` | The window: `index.html` (markup), `app.css`, `js/` (one file per part of the page, loaded in order; `boot.js` last) |
 | `index.html` | The launcher page |
+
+## Releases and the release key
+
+- `node tools/bake.js` makes `_releases/my-project-bridge-<version>.zip` and signs it in the same step: it writes
+  `my-project-bridge-<version>.zip.sig` beside it and, when every tracked file is committed, the signed message for
+  the git tag (`my-project-bridge-<version>.tag.txt`). It prints the rest, which stays yours: `git tag -a v<version>
+  -F <that file>`, `git push origin v<version>`, and a GitHub Release for tag `v<version>` with the zip and the .sig
+  attached. With files not yet committed, commit first, then `node tools/sign-release.js tag`.
+- The release key is an Ed25519 key pair. The first bake makes it: the private half goes to the file named by
+  `BRIDGE_RELEASE_KEY`, or by default to `claude-private\bridge-release-key.pem` in your home folder (never inside
+  the repository: the bake stops if a private key is anywhere in what it would ship), and the public half is written
+  into `lib/release.js` (`RELEASE_KEY`), which ships. Keep a copy of the private half somewhere safe.
+- **If the key is lost:** run `node tools/bake.js --new-key`. It makes a new pair and writes the new public half into
+  `lib/release.js`. Bridges already installed carry the old public half, so they will not take that one version by
+  themselves: Check for updates tells them it is "signed with a key this Bridge does not know" and to install it by
+  hand once (Update from a zip…, then Install anyway, or unzip it as a first install). From that version on, they
+  carry the new key and updates are automatic again. A key that is only misplaced is better put back (or pointed at
+  with `BRIDGE_RELEASE_KEY`): the bake stops and says so rather than making a new one by itself.
+- Updates come only from the fixed address in `lib/release.js`. The tests point them elsewhere with
+  `BRIDGE_RELEASE_API` (a stand-in for GitHub's API) and `BRIDGE_RELEASE_GIT` (a bare repository).

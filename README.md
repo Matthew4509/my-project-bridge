@@ -26,8 +26,10 @@ first, double-click **`start-demo.cmd`**.
 - **Windows only** for now.
 - **The audit is a quick check**, not a full security test: a clean audit means "no common faults found", not "safe".
 - **Its only requests off your PC** go to the live addresses you add (plus a DNS lookup for them when you scan), and
-  a Git version check only if you tick it. Site pictures load your local pages as a browser would, with any fonts
+  a Git version check only if you tick it, and GitHub only when you press **Check for updates**. Site pictures load your local pages as a browser would, with any fonts
   or scripts they load from the internet.
+- **Updates are signed.** **About › Updates** installs a newer version only when its maker signed it (a zip you
+  pick yourself without that signature gets a warning first), and keeps the old one beside it to switch back.
 - **Meant for a PC with one Windows user.**
 - **To remove it:** `uninstall.cmd`, then delete the folder. Neither touches your projects.
 

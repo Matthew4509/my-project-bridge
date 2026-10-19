@@ -506,6 +506,9 @@ a.btn.accent{color:var(--accent-ink)}
 @media (max-width:560px){.help-dl{grid-template-columns:1fr}.help-dl dd{margin-bottom:6px}}
 .set-row .txt label.tick{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:13px;cursor:pointer}
 .set-row .txt .warn-line{color:var(--warn);font-size:13px;display:block;margin-top:2px}
+.set-row .txt .upd-line{font-size:13px;display:block;margin-top:4px}
+.upd-warn{border:1px solid var(--bad);border-left-width:4px;border-radius:4px;background:var(--bad-soft);padding:10px 12px;margin:8px 0;line-height:1.4}
+.upd-warn b{color:var(--bad)}
 .git-cmd{display:flex;gap:8px;align-items:center;margin:6px 0}
 .git-cmd code{flex:1;padding:6px 8px}
 .git-wait{display:flex;gap:12px;align-items:baseline;padding:5px 0;border-top:1px solid var(--line)}
