@@ -423,6 +423,8 @@ before you paste it.
 - A start entry's `cwd` and `env` are used: it runs in that folder with those variables (a React dev server on its
   `PORT`), and a root `launch.json` entry whose `cwd` is inside a project now shows on that project's Run menu.
 - A local copy that is still starting gets a minute to answer, not 20 seconds.
+- A start-line prompt to paste into your AI once, so it writes and keeps each project's `start` in its project.json:
+  on Welcome, on a project's **No start command** (now clickable), and on the Prompts page.
 
 ## What's new in 0.1.06
 

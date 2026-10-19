@@ -49,7 +49,12 @@ function welcomeDialog() {
     h('p', { class: 'muted' }, 'So you never have to start it by hand:'),
     tick('w-startup', 'Start the Bridge when I sign in to Windows', 'It runs quietly in the background; open it from the desktop shortcut, index.html or a bookmark.'),
     tick('w-desktop', 'Put a My Project Bridge shortcut on my desktop', 'Double-click it any time to open the Bridge.'),
-    h('p', { class: 'muted', style: 'font-size:13px' }, 'You can change both later on the About page.'), busy],
+    h('p', { class: 'muted', style: 'font-size:13px' }, 'You can change both later on the About page.'),
+    h('div', { style: 'border-top:1px solid var(--line2);margin-top:14px;padding-top:12px' },
+      h('b', null, 'Teach your AI to save a start line'),
+      h('p', { class: 'muted', style: 'font-size:13px;margin:4px 0 10px' }, 'The Bridge runs each project from a "start" line in its project.json. Paste this prompt once into Claude, ChatGPT or the AI you use, and it will write that line for your projects and keep it up to date. It is also on the Prompts page.'),
+      copyBlock('Copy the prompt', startLinePrompt, 'Start-line prompt copied. Paste it into the AI you use.')),
+    busy],
     [done, h('button', { class: 'btn', type: 'button', onclick: () => answer(false) }, 'Not now')]);
 }
 
