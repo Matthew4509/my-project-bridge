@@ -418,6 +418,12 @@ version from **About**. Please leave out your own folder paths, project names an
 the audit show labels instead of your private details, but they do name the project and its files: read the text
 before you paste it.
 
+## What's new in 0.1.07
+
+- A start entry's `cwd` and `env` are used: it runs in that folder with those variables (a React dev server on its
+  `PORT`), and a root `launch.json` entry whose `cwd` is inside a project now shows on that project's Run menu.
+- A local copy that is still starting gets a minute to answer, not 20 seconds.
+
 ## What's new in 0.1.06
 
 - A short README, with every detail moved to this user guide.
