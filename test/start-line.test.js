@@ -78,6 +78,21 @@ async function main() {
     const st = Prompts.load(old);
     assert(!st.categories.some(c => c.id === 'starter-bridge') && !st.prompts.some(p => p.id === 'starter-bridge-1'), JSON.stringify(st.categories));
   });
+  await check('a file that cannot be written (read-only, held by antivirus) still shows the list with the starter, and records it once it can', () => {
+    const ro = path.join(WS, 'data', 'prompts-ro.json');
+    const before = JSON.stringify({ categories: [{ id: 'mine', name: 'My prompts' }], prompts: [{ id: 'a1', category: 'mine', title: 'Mine', text: 'My own prompt.' }] });
+    fs.writeFileSync(ro, before);
+    fs.chmodSync(ro, 0o444);
+    try {
+      let st;
+      assert.doesNotThrow(() => { st = Prompts.load(ro); });
+      assert.deepStrictEqual(st.categories.map(c => c.id), ['starter-bridge', 'mine']);
+      assert.strictEqual(fs.readFileSync(ro, 'utf8'), before, 'the read-only file was changed');
+      assert(!fs.existsSync(ro + '.tmp'), 'a half-written copy was left beside it');
+    } finally { fs.chmodSync(ro, 0o666); }
+    Prompts.load(ro);
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(ro, 'utf8')).added, ['bridge']);
+  });
   await check('an edit elsewhere in the file keeps the record that it was given', () => {
     assert(Prompts.upsert(old, { category: 'mine', title: 'Two', text: 'Another.' }).ok);
     assert.deepStrictEqual(JSON.parse(fs.readFileSync(old, 'utf8')).added, ['bridge']);

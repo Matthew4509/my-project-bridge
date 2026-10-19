@@ -202,7 +202,7 @@ function noStartDialog(r) {
   const bad = r.startSkipped || [];
   dialog('No start command for ' + r.name, [
     h('p', null, 'The Bridge runs a project from a start line in its own files: a "start" in project.json at the top of its folder, or an entry in .claude/launch.json. ' +
-      (bad.length ? 'The start entry in ' + bad.join(' and ') + ' could not be used: it names no program, its arguments are not a list, or its cwd is not a folder that is there.' : 'This project has neither yet.')),
+      (bad.length ? 'The start entry in ' + bad.join(' and ') + ' could not be used. An entry is skipped when it names no program, its arguments are not a list, its cwd is not a folder that is there, or its env is not plain names with text values.' : 'This project has neither yet.')),
     h('p', { class: 'muted' }, 'Copy this prompt into Claude, ChatGPT or the AI you use. It asks the AI to remember how to write a start line, and to add one for this project now (the prompt names its folder).'),
     copyBlock('Copy the prompt', async () => (await startLinePrompt()) + '\n\nPlease add the start line for this project now.\n' + promptFor(r),
       'Start-line prompt copied for ' + r.name + '. Paste it into the AI you use, then Refresh here.', true)],
