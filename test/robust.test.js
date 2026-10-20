@@ -26,6 +26,9 @@ const portOpen = port => new Promise(r => { const s = net.connect(port, '127.0.0
 const PAGE = '<!doctype html><title>Made-up</title><p>A made-up site.</p>';
 
 const WS = fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-robust-'));
+// Data folders for child processes and test copies: every one is removed at the end.
+const temps = [];
+const tempDir = prefix => { const d = fs.mkdtempSync(path.join(os.tmpdir(), prefix)); temps.push(d); return d; };
 function make(folder, files) {
   const d = path.join(WS, folder);
   fs.mkdirSync(d, { recursive: true });
@@ -163,7 +166,7 @@ async function main() {
   });
   // In a child process over its own data folder, so nothing here reads or writes the real Bridge's data.
   const inChild = lines => {
-    const r = spawnSync(NODE, ['-e', lines.join(' ')], { cwd: path.join(__dirname, '..'), env: { ...process.env, BRIDGE_DRYRUN: '1', BRIDGE_DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-robust-child-')), BRIDGE_ROOT: WS }, encoding: 'utf8', timeout: 20000 });
+    const r = spawnSync(NODE, ['-e', lines.join(' ')], { cwd: path.join(__dirname, '..'), env: { ...process.env, BRIDGE_DRYRUN: '1', BRIDGE_DATA: tempDir('bridge-robust-child-'), BRIDGE_ROOT: WS }, encoding: 'utf8', timeout: 20000 });
     try { return JSON.parse(r.stdout.trim().split(/\r?\n/).pop()); } catch { throw new Error(r.stdout + r.stderr); }
   };
   await check('S12: Stop, then Run again while the first start checks its port: only the new start counts', () => {
@@ -361,7 +364,7 @@ async function main() {
   for (let i = 0; i < 50 && !(await portOpen(pSilent)); i++) await sleep(100);
   await check('S8: a port holder that never answers does not leave start-up waiting (gone in a few seconds, with the reason)', () => {
     const t = Date.now();
-    const r = spawnSync(NODE, [SERVER, '--dry-run'], { env: { ...process.env, BRIDGE_PORT: String(pSilent), BRIDGE_DATA: fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-robust-s8-')), BRIDGE_ROOT: WS }, encoding: 'utf8', timeout: 20000 });
+    const r = spawnSync(NODE, [SERVER, '--dry-run'], { env: { ...process.env, BRIDGE_PORT: String(pSilent), BRIDGE_DATA: tempDir('bridge-robust-s8-'), BRIDGE_ROOT: WS }, encoding: 'utf8', timeout: 20000 });
     assert(Date.now() - t < 12000, 'took ' + (Date.now() - t) + ' ms');
     assert(/does not answer/.test(r.stderr + r.stdout), r.stdout + r.stderr);
   });
@@ -384,7 +387,7 @@ async function main() {
     assert(!/\.cmd\b/i.test(q.stdout), 'the link runs node.exe with link-start.js: ' + q.stdout);
   });
 
-  try { fs.rmSync(WS, { recursive: true, force: true }); fs.rmSync(DATA, { recursive: true, force: true }); } catch {}
+  for (const d of [WS, DATA, ...temps]) try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch {}
   console.log(failures ? failures + ' FAILED' : 'all passed');
   process.exit(failures ? 1 : 0);
 }

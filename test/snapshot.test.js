@@ -58,7 +58,9 @@ const portIn = profile => { try { return fs.readFileSync(path.join(profile, 'Dev
     });
   } finally {
     server.close();
-    try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
+    // Edge lets go of its profile a moment after it ends: try for a few seconds, or the folder is left in %TEMP%.
+    try { fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); } catch {}
+    if (fs.existsSync(tmp)) console.log('note: could not remove ' + tmp);
   }
   console.log(failures ? failures + ' FAILED' : 'all passed');
   process.exitCode = failures ? 1 : 0;

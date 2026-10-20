@@ -106,7 +106,10 @@ async function main() {
   const PORT = await freePort();
   const srv = spawn(NODE, [SERVER, '--dry-run'], { env: { ...process.env, BRIDGE_PORT: String(PORT), BRIDGE_DATA: DATA, BRIDGE_ROOT: WS }, stdio: 'ignore' });
   try {
-    for (let i = 0; i < 50 && !(await portOpen(PORT)); i++) await sleep(200);
+    // Up to 30 s on a busy PC; a copy that never opened its port is said plainly, not reported as "fetch failed".
+    let up = false;
+    for (let i = 0; i < 150 && !(up = await portOpen(PORT)); i++) await sleep(200);
+    if (!up) throw new Error('the test copy did not open port ' + PORT + ' within 30 s');
     const BASE = 'http://127.0.0.1:' + PORT;
     const key = ((await (await fetch(BASE + '/')).text()).match(/name="bridge-key" content="([0-9a-f]+)"/) || [])[1];
     const get = async p => (await fetch(BASE + p, { headers: { 'X-Bridge-Key': key } })).json();

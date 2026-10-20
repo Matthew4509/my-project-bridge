@@ -300,6 +300,26 @@ async function main() {
     assert.match(r.error, /was not installed: started as a test copy, it stopped/);
     update.dropPending();
   });
+  await check('the test start reads your settings without live addresses, added projects or this Bridge\'s BRIDGE_ settings', async () => {
+    // A stand-in new copy that writes down what it was handed, then answers like a Bridge.
+    const dir = fs.mkdtempSync(path.join(TMP, 'stub-')), seen = path.join(TMP, 'stub-seen.json');
+    fs.writeFileSync(path.join(dir, 'server.js'), [
+      "const fs = require('fs'), path = require('path'), http = require('http');",
+      "const d = process.env.BRIDGE_DATA, port = +process.argv.find(a => a.startsWith('--port=')).slice(7);",
+      "fs.writeFileSync(" + JSON.stringify(seen) + ", JSON.stringify({ settings: JSON.parse(fs.readFileSync(path.join(d, 'settings.json'), 'utf8')), env: Object.keys(process.env).filter(k => /^BRIDGE_/i.test(k)).sort(), root: process.env.BRIDGE_ROOT }));",
+      "fs.writeFileSync(path.join(d, 'run.json'), JSON.stringify({ key: 'k' }));",
+      "http.createServer((q, r) => { if (q.url === '/api/quit') { r.end('{}'); return setTimeout(() => process.exit(0), 50); }",
+      "  r.end(q.url === '/' ? '<meta name=\"bridge-key\" content=\"k\">' : q.url === '/api/stats' ? JSON.stringify({ version: '0.1.99' }) : 'x'); }).listen(port, '127.0.0.1');",
+    ].join('\n'));
+    const data = fs.mkdtempSync(path.join(TMP, 'stub-data-'));
+    fs.writeFileSync(path.join(data, 'settings.json'), JSON.stringify({ workingFolders: [PARENT], extraProjects: [APP], liveUrls: { 'c:\\x': 'https://shop.example/' }, theme: 'dark' }));
+    process.env.BRIDGE_RELEASE_API = 'http://127.0.0.1:9/'; process.env.BRIDGE_LINK_KEY = 'HKCU\\Software\\Nothing';
+    try { assert.equal(await update.selfTest(dir, '0.1.99', W({ data })), ''); }
+    finally { delete process.env.BRIDGE_RELEASE_API; delete process.env.BRIDGE_LINK_KEY; }
+    const s = JSON.parse(fs.readFileSync(seen, 'utf8'));
+    assert.deepEqual([s.settings.theme, s.settings.extraProjects, s.settings.liveUrls, s.settings.workingFolders], ['dark', [], {}, [s.root]]);
+    assert.deepEqual(s.env, ['BRIDGE_DATA', 'BRIDGE_OPEN', 'BRIDGE_ROOT']);
+  });
   await check('Install on a warning needs Install anyway; a test copy then stops short of the swap', async () => {
     const z = path.join(ZIPS, 'unsigned', 'my-project-bridge-0.1.99.zip');
     fs.rmSync(z + '.sig', { force: true });
@@ -470,6 +490,10 @@ async function main() {
       for (let i = 0; i < 50 && !isBack(); i++) await sleep(100);
       assert.ok(isBack(), 'the restart after going back was recorded');
       assert.match((await updateGit.goBack(GW({ dry: false, start: null, wait: [] }), () => {})).error, /no git update to go back from/);
+      // An edited last.json naming an option instead of a commit is not handed to git.
+      fs.writeFileSync(lastFile, JSON.stringify({ route: 'git', ok: true, from: '0.1.98', to: '0.1.99', fromCommit: '--hard', toCommit: g(clone, 'rev-parse', 'HEAD') }));
+      assert.match((await updateGit.goBack(GW({ dry: false, start: null, wait: [] }), () => { throw new Error('must not exit'); })).error, /no git update to go back from/);
+      assert.equal(g(clone, 'rev-parse', 'HEAD'), p.from);
       // A tag moved onto another commit (same message), a plain tag, an unsigned one: none taken.
       fs.appendFileSync(path.join(work, 'README.md'), '\nsomething else\n');
       g(work, 'commit', '-q', '-am', 'other');
@@ -493,6 +517,38 @@ async function main() {
     } finally { delete process.env.BRIDGE_RELEASE_GIT; update.dropPending(); }
   });
 
+  await check('git: a release that starts tracking a file this clone ignores never replaces yours; nothing moves', async () => {
+    const g = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    const origin = path.join(TMP, 'origin2.git'), work = path.join(TMP, 'work2'), clone = path.join(TMP, 'clones2', 'bridge-clone');
+    g(TMP, 'init', '-q', '--bare', '-b', 'main', origin);
+    copyBridge(work, '0.1.98');
+    const ident = d => { g(d, 'config', 'user.name', 'Test'); g(d, 'config', 'user.email', 'test@example.invalid'); g(d, 'config', 'core.autocrlf', 'false'); };
+    g(work, 'init', '-q', '-b', 'main'); ident(work); g(work, 'add', '-A'); g(work, 'commit', '-q', '-m', '0.1.98'); g(work, 'push', '-q', origin, 'main');
+    fs.mkdirSync(path.dirname(clone));
+    g(TMP, 'clone', '-q', '-c', 'core.autocrlf=false', origin, clone); ident(clone);
+    fs.mkdirSync(path.join(clone, 'data'));
+    fs.appendFileSync(path.join(clone, '.git', 'info', 'exclude'), '\nlocal-only.json\n');
+    fs.writeFileSync(path.join(clone, 'local-only.json'), '{"mine":true}');
+    const cfgFile = path.join(work, 'lib', 'config.js');
+    fs.writeFileSync(cfgFile, fs.readFileSync(cfgFile, 'utf8').replace("'0.1.98'", "'0.1.99'"));
+    fs.writeFileSync(path.join(work, 'local-only.json'), '{"theirs":true}');
+    g(work, 'add', '-A'); g(work, 'commit', '-q', '-m', '0.1.99');
+    const msg = path.join(TMP, 'tag2.txt');
+    fs.writeFileSync(msg, release.tagMessage(release.signTag(KEY.pem, '0.1.99', g(work, 'rev-parse', 'HEAD'), g(work, 'rev-parse', 'HEAD^{tree}'))));
+    g(work, 'tag', '-a', 'v0.1.99', '-F', msg); g(work, 'push', '-q', origin, 'main', 'v0.1.99');
+    process.env.BRIDGE_RELEASE_GIT = origin;
+    try {
+      const GW = extra => update.where({ app: clone, data: path.join(clone, 'data'), version: '0.1.98', key: KEY.pub, ...extra });
+      const r = await updateGit.get('0.1.99', GW());
+      assert.ok(r.ok, r.error);
+      const head = g(clone, 'rev-parse', 'HEAD');
+      const done = await updateGit.install(update.pending, GW({ dry: false, start: null, wait: [] }), () => { throw new Error('must not exit'); });
+      assert.match(done.error || '', /did not go in.*Nothing was changed/);
+      assert.equal(fs.readFileSync(path.join(clone, 'local-only.json'), 'utf8'), '{"mine":true}');
+      assert.equal(g(clone, 'rev-parse', 'HEAD'), head);
+    } finally { delete process.env.BRIDGE_RELEASE_GIT; update.dropPending(); }
+  });
+
   // ---------- the routes, through a test copy of the Bridge on port 8489 ----------
   await check('About routes on a test copy: status, Check, Download and check, Update from a zip, Install anyway, the demo', async () => {
     offer(Z99);
@@ -513,7 +569,12 @@ async function main() {
       assert.deepEqual([c.ok, c.version, c.newer], [true, '0.1.99', true]);
       const d = await call('/api/update/get', { version: '0.1.99' });
       assert.ok(d.ok && d.pending.signed, d.error);
-      const i = await call('/api/update/install', { version: '0.1.99' });
+      // Quit while Install is in its test start: refused with the reason, and Install finishes.
+      const installing = call('/api/update/install', { version: '0.1.99' });
+      await sleep(300);
+      const q = await call('/api/quit', {});
+      assert.ok(q.ok === false && /update step is running \(installing\)/.test(q.error), JSON.stringify(q));
+      const i = await installing;
       assert.match(i.dryRun || i.error, /passed its test start/);
       assert.match((await call('/api/update/install', { version: '0.1.50' })).error, /no longer waiting/);
       const z = path.join(ZIPS, 'unsigned', 'my-project-bridge-0.1.99.zip');

@@ -448,6 +448,12 @@ version from **About**. Please leave out your own folder paths, project names an
 the audit show labels instead of your private details, but they do name the project and its files: read the text
 before you paste it.
 
+## What's new in 0.1.09
+
+- Quit and Uninstall wait while an update step is running, and say so, instead of stopping it halfway.
+- An update through git never replaces a file of yours that git ignores; an update's test start never checks your
+  live sites.
+
 ## What's new in 0.1.08
 
 - **About › Updates:** Check for updates, Update from a zip…, and switching back to the version you had. Only an

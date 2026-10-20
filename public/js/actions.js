@@ -260,8 +260,10 @@ function importDialog(r, a) {
 
 $('btn-quit').addEventListener('click', () => dialog('Quit the Bridge?', [h('p', null, 'The Bridge stops, and so does every local copy it started. Start it again with start-bridge.cmd.')],
   [h('button', { class: 'btn accent', type: 'button', onclick: async () => {
-    try { await api('/api/quit', {}); } catch {}
+    let r = null;
+    try { r = await api('/api/quit', {}); } catch {}
     closeDialog();
+    if (r && r.ok === false) return info(r.error, true); // an update step is running: the Bridge stays
     // A demo or test copy is not started by the link (that would start the real Bridge on its own port).
     const demo = stats && stats.demo, dry = stats && (stats.dryRun || demo);
     document.body.replaceChildren(h('div', { class: 'empty', style: 'margin:40px' }, demo ? 'The demo has stopped. Start it again with start-demo.cmd.' : 'The Bridge has stopped. You can close this window.',
