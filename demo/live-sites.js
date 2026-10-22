@@ -2,8 +2,10 @@
 // compare have something to show without sending a request off the PC.
 //   node demo/live-sites.js <live-sites.json> <demo Bridge port>
 // live-sites.json: { sites: [{ host, port, dir, mode }], httpPort }. mode "firewall" answers 403 with a firewall page.
-// httpPort answers every plain http:// request with a move to https://, as a real host would.
-// Stops by itself once the demo Bridge has stopped answering.
+// httpPort (optional) answers every plain http:// request with a move to https://, as a real host would.
+// A second copy serves the demo's "another program" sites (other-sites.json, mode "local": a project's own public/ on
+// localhost, no HSTS), so every made-up site the Bridge did not start stops with the demo.
+// Stops by itself within about 3 s once the demo Bridge has stopped answering (Quit, --stop, or the Bridge gone).
 'use strict';
 const http = require('http');
 const net = require('net');
@@ -18,6 +20,7 @@ const HEADERS = {
   'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer',
   'Strict-Transport-Security': 'max-age=31536000',
 };
+const { 'Strict-Transport-Security': _hsts, ...LOCAL_HEADERS } = HEADERS;
 
 for (const s of cfg.sites) {
   const root = path.join(s.dir, 'public');
@@ -26,24 +29,25 @@ for (const s of cfg.sites) {
       res.writeHead(403, { 'Content-Type': 'text/html; charset=utf-8' });
       return res.end('<!DOCTYPE html><html><head><title>Access Denied</title></head><body><h1>Access Denied</h1><p>Your request was blocked by the security rules of this server.</p></body></html>');
     }
+    const headers = s.mode === 'local' ? LOCAL_HEADERS : HEADERS;
     let rel;
-    try { rel = decodeURIComponent(new URL(req.url, 'http://x').pathname); } catch { res.writeHead(400, HEADERS); return res.end('Bad address'); }
+    try { rel = decodeURIComponent(new URL(req.url, 'http://x').pathname); } catch { res.writeHead(400, headers); return res.end('Bad address'); }
     if (rel.endsWith('/')) rel += 'index.html';
     const file = path.join(root, path.normalize(rel));
-    if (!file.startsWith(root + path.sep)) { res.writeHead(403, HEADERS); return res.end('Forbidden'); }
+    if (!file.startsWith(root + path.sep)) { res.writeHead(403, headers); return res.end('Forbidden'); }
     fs.readFile(file, (err, data) => {
-      if (err) { res.writeHead(404, { ...HEADERS, 'Content-Type': 'text/plain' }); return res.end('Not found'); }
-      res.writeHead(200, { ...HEADERS, 'Content-Type': TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream' });
+      if (err) { res.writeHead(404, { ...headers, 'Content-Type': 'text/plain' }); return res.end('Not found'); }
+      res.writeHead(200, { ...headers, 'Content-Type': TYPES[path.extname(file).toLowerCase()] || 'application/octet-stream' });
       res.end(data);
     });
   }).listen(s.port, '127.0.0.1');
 }
-http.createServer((req, res) => {
+if (cfg.httpPort) http.createServer((req, res) => {
   res.writeHead(301, { Location: 'https://' + (req.headers.host || 'example.invalid') + req.url });
   res.end();
 }).listen(cfg.httpPort, '127.0.0.1');
 
-// Stop once this demo run is over: the demo Bridge stopped answering (two misses, 5 s apart), or a new demo run
+// Stop once this demo run is over: the demo Bridge stopped answering (two misses, 1 s apart), or a new demo run
 // started (its run.json holds a different key).
 const runFile = path.join(path.dirname(process.argv[2]), 'run.json');
 const runKey = () => { try { return JSON.parse(fs.readFileSync(runFile, 'utf8')).key; } catch { return null; } };
@@ -55,5 +59,5 @@ setInterval(() => {
   s.setTimeout(1000, () => { s.destroy(); if (++misses >= 2) process.exit(0); });
   s.on('connect', () => { misses = 0; s.destroy(); });
   s.on('error', () => { if (++misses >= 2) process.exit(0); });
-}, 5000);
-console.log('Demo live sites: ' + cfg.sites.map(s => s.host + ' on :' + s.port).join(', '));
+}, 1000);
+console.log('Demo sites: ' + cfg.sites.map(s => (s.host || 'localhost') + ' on :' + s.port).join(', '));

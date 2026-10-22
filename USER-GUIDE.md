@@ -66,7 +66,8 @@ To try it first with made-up projects, double-click `start-demo.cmd` (see [Demo]
 
 ### Along the bottom
 
-- How many projects are on the list, how many are running (● 2 running, or ○ none running), and when the tokens were
+- How many projects are on the list, how many are running (● 2 running, ● 2 started here · 1 other when another
+  program holds a project's port too, or ○ none running; the Running list and the orbit count the same), and when the tokens were
   last counted (or "Counting tokens…", or a failed count with the way out: Recount in the This PC panel).
 - **Git:** how many projects are backed up, waiting for a save or push, only on this PC, or not in git. Click it for
   the list of projects waiting, each with its git window. Hidden when no project uses git.
@@ -77,7 +78,9 @@ To try it first with made-up projects, double-click `start-demo.cmd` (see [Demo]
   showing a picture of its own page and its own icon. **↗** on a satellite opens it in your browser. Clicking a
   satellite **stops that site**, with a short space-battle animation (it is "shot down"). A site held by another
   program (amber) is stopped the same way: stopping it ends that program. A newly started site launches up from the
-  horizon. Prefer a plain look? Pick **Windows**, **Light** or **Dark** under **About › Theme**.
+  horizon. It shows only while something runs, in full on the Projects page; on the other pages it folds to a thin
+  strip with the count and **Show on Projects**. Prefer a plain look? Pick **Windows**, **Light** or **Dark** under
+  **About › Theme**.
 
 ### Projects page
 
@@ -209,7 +212,9 @@ and only pretends to change shortcuts, so it is safe for screenshots.
 
 Press **▶ Play demo** above the orbit for the tour: a site launches into orbit, another opens in your browser, and
 **▶ Shoot it down** finishes with the faulty one (the audit flags it) raising its shields, firing back and exploding.
-About > Quit stops the demo and its sites; every name and number in it is made up.
+About > Quit stops the demo and every site it made up, the "other program's" one included; every name and number in
+it is made up. The demo uses ports 5301-5308 and 5320-5325 for its sites; if another program holds one of them, the
+demo says so when it starts.
 
 ## Where start commands come from
 
@@ -221,7 +226,11 @@ text. It looks, in order, at:
 3. the working folder's `.claude/launch.json`: entries whose arguments point inside the project;
 4. the Bridge's own `projects.json`, key `start`.
 
-A start command needs a `port`, so the Bridge can check the port is free and open the right address.
+A start command needs a `port`, so the Bridge can check the port is free and open the right address. An entry may
+also name the folder it runs in (`cwd`, relative to where that file's entries run, and it must be a folder that is
+there) and extra settings for the program (`env`, plain names with text values, for example `"PORT": "3010"` and
+`"BROWSER": "none"` for a React dev server). A `cwd` or `env` the Bridge cannot use skips that entry, and the **No
+start command** window says which one and why.
 
 ## Names and descriptions: `projects.json`
 
@@ -450,6 +459,11 @@ before you paste it.
 
 ## What's new in 0.1.09
 
+- The orbit shows only while something runs, and folds to a thin strip off the Projects page.
+- The List view keeps each project's name whole (its marks wrap under it), and every button is at least 24 px tall.
+- The bar, the Running list and the orbit count the same sites ("2 started here · 1 other").
+- The demo's Quit also stops its "other program" site, and the demo shows a Passed and a High audit even when a site
+  will not start.
 - Quit and Uninstall wait while an update step is running, and say so, instead of stopping it halfway.
 - An update through git never replaces a file of yours that git ignores; an update's test start never checks your
   live sites.

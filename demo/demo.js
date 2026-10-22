@@ -2,12 +2,16 @@
 //   node demo/demo.js          (or double-click start-demo.cmd)
 // Builds data-demo/workspace (nine fictional projects), starts the Bridge in demo mode on 127.0.0.1:8486, puts
 // three sites in orbit (two started by the Bridge, one by "another program"), runs the audits, and opens the window.
-// Press "Play demo" on its status line for the tour. About > Quit stops the demo and its sites.
+// Press "Play demo" on its status line for the tour. About > Quit (or node server.js --demo --stop) stops the demo
+// and every site it made up: the Bridge's own, and two demo/live-sites.js helpers (the live copies; the "other
+// program" site, in a process of its own so shooting it down leaves the live copies up), which stop themselves within
+// about 3 s of the Bridge.
 // Every name, business and number here is made up.
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const net = require('net');
 const { spawn, execFileSync } = require('child_process');
 
 const HERE = path.resolve(__dirname, '..');
@@ -89,8 +93,12 @@ const LIVE = [
   { folder: 'copper-kettle-cafe', host: 'copperkettlecafe.example', port: null },
 ];
 const LIVE_HTTP_PORT = 5320;
+// demo/live-sites.js serves the live copies (live-sites.json) and, in a second process, the "another program" sites
+// (other-sites.json); each stops itself with the demo Bridge.
 function buildLive() {
   const sites = [];
+  const other = SITES.filter(s => s.start === 'other').map(s => ({ port: s.port, dir: path.join(WS, s.folder), mode: 'local' }));
+  fs.writeFileSync(path.join(DATA, 'other-sites.json'), JSON.stringify({ sites: other }, null, 2));
   for (const l of LIVE.filter(x => x.port)) {
     const dir = path.join(WS + '-live', l.folder);
     let html = fs.readFileSync(path.join(WS, l.folder, 'public', 'index.html'), 'utf8');
@@ -144,6 +152,7 @@ function build() {
 
 // ---------- running it ----------
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const step = async (label, job) => { try { console.log('  ' + label + ': ' + await job()); } catch (e) { console.log('  ' + label + ': failed (' + e.message + ')'); } };
 function call(key, pathname, body) {
   return new Promise((resolve, reject) => {
     const data = body ? JSON.stringify(body) : null;
@@ -156,7 +165,28 @@ function call(key, pathname, body) {
     req.end(data || undefined);
   });
 }
-function killPidFile(f) { try { const pid = Number(fs.readFileSync(f, 'utf8')); if (pid) execFileSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' }); } catch {} try { fs.unlinkSync(f); } catch {} }
+// A pid file outlives its process, and Windows hands the number on: only a process that is still this demo's helper
+// (its command line names the script) is ended, never whatever holds that number now.
+function cmdLineOf(pid) {
+  try {
+    return execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(Get-CimInstance Win32_Process -Filter 'ProcessId=${Number(pid)}').CommandLine`],
+      { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch { return ''; }
+}
+function killPidFile(f, script) {
+  let pid = 0;
+  try { pid = Number(fs.readFileSync(f, 'utf8')); } catch {}
+  let killed = false;
+  const line = Number.isInteger(pid) && pid > 0 ? cmdLineOf(pid).toLowerCase() : '';
+  if (line && line.includes(script.toLowerCase())) {
+    try { execFileSync('taskkill.exe', ['/PID', String(pid), '/F'], { stdio: 'ignore' }); killed = true; } catch {}
+  }
+  try { fs.unlinkSync(f); } catch {}
+  return killed;
+}
+const portFree = port => new Promise(r => { const s = net.connect(port, '127.0.0.1'); s.setTimeout(800, () => { s.destroy(); r(true); }); s.on('connect', () => { s.destroy(); r(false); }); s.on('error', () => r(true)); });
+// Every port the demo's made-up sites use (another app's demo may use the same ones).
+const DEMO_PORTS = [...SITES.filter(s => s.port).map(s => s.port), ...LIVE.filter(l => l.port).map(l => l.port), LIVE_HTTP_PORT];
 function findEdge() {
   return [process.env['ProgramFiles(x86)'], process.env.ProgramFiles, process.env.LOCALAPPDATA].filter(Boolean)
     .map(b => path.join(b, 'Microsoft', 'Edge', 'Application', 'msedge.exe')).find(p => fs.existsSync(p)) || null;
@@ -166,9 +196,19 @@ async function main() {
   console.log('My Project Bridge demo: made-up projects, for screenshots.');
   // A demo already running: stop it (and its sites) first, so every run starts the same way.
   try { execFileSync(process.execPath, [path.join(HERE, 'server.js'), '--demo', '--stop'], { stdio: 'ignore' }); } catch {}
-  killPidFile(path.join(DATA, 'other-site.pid'));
-  killPidFile(path.join(DATA, 'live-sites.pid')); // the last run's made-up live sites
-  await sleep(800);
+  killPidFile(path.join(DATA, 'live-sites.pid'), 'live-sites.js'); // the last run's made-up sites, if still up
+  killPidFile(path.join(DATA, 'other-site.pid'), 'site.js'); // its "other program" site (live-sites.js, or site.js before 0.1.09)
+  // Wait for the made-up sites' ports (the last run's sites stop themselves within a few seconds); one still held
+  // belongs to another program, and the demo says so instead of showing that program's site as its own.
+  let held = [];
+  for (let i = 0; i < 10; i++) {
+    held = [];
+    for (const p of DEMO_PORTS) if (!(await portFree(p))) held.push(p);
+    if (!held.length) break;
+    await sleep(500);
+  }
+  if (held.length) console.log('  Note: port' + (held.length > 1 ? 's ' : ' ') + held.join(', ') + (held.length > 1 ? ' are' : ' is')
+    + " held by another program (another demo, perhaps). The demo carries on; those sites may show as another program's.");
   // Fresh settings, audits and logs each time; site pictures are kept (they take a few seconds each).
   for (const f of ['settings.json', 'run.json']) fs.rmSync(path.join(DATA, f), { force: true });
   for (const d of ['audits', 'logs']) fs.rmSync(path.join(DATA, d), { recursive: true, force: true });
@@ -189,39 +229,48 @@ async function main() {
 
   // Hosted live: the made-up live sites, then each project's live address (checked as it is set).
   buildLive();
-  const liveKid = spawn(process.execPath, [path.join(__dirname, 'live-sites.js'), path.join(DATA, 'live-sites.json'), String(PORT), key], { detached: true, stdio: 'ignore', windowsHide: true });
-  liveKid.unref();
-  fs.writeFileSync(path.join(DATA, 'live-sites.pid'), String(liveKid.pid));
-  await sleep(600);
+  const helper = (cfgName, pidName) => {
+    const kid = spawn(process.execPath, [path.join(__dirname, 'live-sites.js'), path.join(DATA, cfgName), String(PORT), key], { detached: true, stdio: 'ignore', windowsHide: true });
+    kid.unref();
+    fs.writeFileSync(path.join(DATA, pidName), String(kid.pid));
+  };
+  helper('live-sites.json', 'live-sites.pid');
+  // "Another program": one site started outside the Bridge, so an amber satellite shows.
+  helper('other-sites.json', 'other-site.pid');
+  // Its sites must answer before the live addresses are set (each is checked as it is set): wait for every port.
+  for (let i = 0; i < 40; i++) {
+    let up = true;
+    for (const p of [LIVE_HTTP_PORT, ...LIVE.filter(l => l.port).map(l => l.port), ...SITES.filter(s => s.start === 'other').map(s => s.port)]) if (await portFree(p)) { up = false; break; }
+    if (up) break;
+    await sleep(250);
+  }
   for (const l of LIVE) {
     const r = await call(key, '/api/live/set', { id: byFolder(l.folder).id, url: 'https://' + l.host + '/' });
     console.log('  live address for ' + l.folder + ': ' + (r.ok ? r.live.state : r.error));
   }
 
-  // "Another program": one site started outside the Bridge, so an amber satellite shows.
-  for (const s of SITES.filter(x => x.start === 'other')) {
-    const dir = path.join(WS, s.folder);
-    const child = spawn(process.execPath, [SITE, String(s.port), dir], { detached: true, stdio: 'ignore', windowsHide: true });
-    child.unref();
-    fs.writeFileSync(path.join(DATA, 'other-site.pid'), String(child.pid));
+  // The audits first (they need no running site), so the Audits page has a Passed and a High even if a start below
+  // fails; each step that fails is reported and the demo carries on.
+  for (const s of SITES.filter(x => x.fault || x.folder === 'tidewater-yoga')) {
+    await step('audited ' + s.name, async () => {
+      const r = await call(key, '/api/audit', { id: byFolder(s.folder).id });
+      if (!r.audit) throw new Error(r.error || 'no audit');
+      const c = r.audit.counts;
+      return ((c.Critical || 0) + (c.High || 0)) + ' Critical/High, ' + (c.Medium || 0) + ' Medium';
+    });
   }
   for (const s of SITES.filter(x => x.start === 'bridge')) {
-    const p = byFolder(s.folder);
-    const r = await call(key, '/api/start', { id: p.id, key: p.commands[0].key, scan: true, open: false });
-    console.log('  started ' + s.name + ': ' + (r.ok ? r.url : r.error));
-  }
-  for (const s of SITES.filter(x => x.fault || x.folder === 'tidewater-yoga')) {
-    const p = byFolder(s.folder);
-    const r = await call(key, '/api/audit', { id: p.id });
-    const c = r.audit ? r.audit.counts : {};
-    console.log('  audited ' + s.name + ': ' + ((c.Critical || 0) + (c.High || 0)) + ' Critical/High, ' + (c.Medium || 0) + ' Medium');
+    await step('started ' + s.name, async () => {
+      const p = byFolder(s.folder);
+      const r = await call(key, '/api/start', { id: p.id, key: p.commands[0].key, scan: true, open: false });
+      return r.ok ? r.url : r.error;
+    });
   }
   // Pictures for the sites already in orbit, so they show as soon as the window opens.
   await sleep(1500);
   const now = (await call(key, '/api/projects')).projects || [];
   for (const p of now.filter(x => x.running || x.portInUse)) {
-    const r = await call(key, '/api/snap', { id: p.id });
-    console.log('  picture of ' + p.name + ': ' + (r.ok ? 'ready' : r.error));
+    await step('picture of ' + p.name, async () => { const r = await call(key, '/api/snap', { id: p.id }); return r.ok ? 'ready' : r.error; });
   }
 
   if (process.argv.includes('--no-window')) return console.log('\nReady at http://127.0.0.1:' + PORT + '/ (no window opened).');
@@ -231,4 +280,5 @@ async function main() {
   console.log('\nThe demo window is open. Press "Play demo" on its status line for the tour.');
   console.log('About > Quit stops the demo and its sites. Your real Bridge and its settings are not touched.');
 }
-main().catch(e => { console.error('Demo failed: ' + e.message); process.exit(1); });
+if (require.main === module) main().catch(e => { console.error('Demo failed: ' + e.message); process.exit(1); });
+module.exports = { killPidFile, SITES, DEMO_PORTS }; // for test/demo.test.js

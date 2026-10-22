@@ -69,6 +69,12 @@ How to test the Bridge and where its code lives. For what it does, see [README.m
   test copy on port 8489.
 - `node test/snapshot.test.js`: three site pictures in a row all come out and no hidden Edge is left running, even
   one left over from an earlier run (Windows with Microsoft Edge).
+- `node test/demo.test.js`: the demo's made-up sites stop with it (`demo/live-sites.js` serves the live copies and,
+  in a second copy, the "other program" site, and each stops itself within about 3 s of the demo Bridge); an old pid
+  file only ends a process that is still the demo's helper; the audits run before the starts. Free ports only.
+- `node test/page.test.js`: the bar, the Running list and the orbit count the same sites; the orbit hides when empty
+  and folds off the Projects page; List view names stay whole; controls are at least 24 px; a window takes focus on
+  a field it can type in, else its main button. Reads `public/` only.
 - `node server.js --dry-run --port=8487`: a test copy that reports browser, terminal and folder actions instead of
   doing them, with its own settings in `data-dryrun\`. Stop it with `node server.js --stop --port=8487`.
   `BRIDGE_DATA` moves the data folder; `BRIDGE_ROOT` sets the first working folder on a first run.
