@@ -8,7 +8,8 @@ const path = require('path');
 const assert = require('assert');
 
 const PUB = path.join(__dirname, '..', 'public');
-const read = f => fs.readFileSync(path.join(PUB, f), 'utf8');
+// As \n: Git for Windows checks files out with \r\n (core.autocrlf), and the patterns below are written with \n.
+const read = f => fs.readFileSync(path.join(PUB, f), 'utf8').replace(/\r\n/g, '\n');
 const CSS = read('app.css'), HTML = read('index.html');
 const STATUS = read('js/status.js'), PANELS = read('js/panels.js'), ORBIT = read('js/orbit.js'), PAGES = read('js/pages.js');
 let failures = 0;
@@ -65,7 +66,7 @@ check('controls at least 24 px: nav items do not shrink, row marks, badges, link
 check('a window takes focus on a field it can type in, else its main button, never a hidden copy block (X-11)', () => {
   const DIALOGS = read('js/dialogs.js');
   assert(/d\.showModal\(\);/.test(DIALOGS), 'a modal window: Tab stays inside from the start');
-  assert(/\.find\(x => !x\.readOnly && !x\.disabled && x\.getClientRects\(\)\.length\) \|\| \$\('dlg-foot'\)\.querySelector\('\.accent'\);\r?\n  if \(f\) f\.focus\(\);/.test(DIALOGS),
+  assert(/\.find\(x => !x\.readOnly && !x\.disabled && x\.getClientRects\(\)\.length\) \|\| \$\('dlg-foot'\)\.querySelector\('\.accent'\);\n  if \(f\) f\.focus\(\);/.test(DIALOGS),
     'Welcome\'s copy block (a hidden, read-only textarea) is skipped, so Done takes the focus, not the first tick box');
 });
 
