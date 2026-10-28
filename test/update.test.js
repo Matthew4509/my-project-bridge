@@ -265,7 +265,7 @@ async function main() {
     assert.deepEqual([r.ok, r.version, r.newer, r.mine, r.notes], [true, '0.1.99', true, '0.1.98', 'What changed.']);
     assert.equal((await update.check(W({ api: API, version: '0.1.99' }))).newer, false);
     gh.status = 404;
-    assert.match((await update.check(W({ api: API }))).error, /not public yet.*Update from a zip/);
+    assert.match((await update.check(W({ api: API }))).error, /could not be found.*Update from a zip/);
     gh.status = 200;
     files.delete('my-project-bridge-0.1.99.zip.sig');
     assert.match((await update.check(W({ api: API }))).error, /signature .* is not attached/);

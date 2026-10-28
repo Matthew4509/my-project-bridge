@@ -462,7 +462,8 @@ audit lists the record of every rule it shows that someone has judged.
 - **Does it change my projects?** No. It never writes into a project's folder and never runs git commands that
   change anything there. The one exception is its own folder, when you install an update (About > Updates). It only starts the start commands stored in each project's own files when you click
   **Run local copy**.
-- **How do I remove it?** `uninstall.cmd` (or **About > Uninstall**), then delete the `my-project-bridge` folder.
+- **How do I remove it?** Double-click `uninstall.cmd` and type **y** when it asks about the Recycle Bin. (**About >
+  Uninstall** takes the shortcuts away too; then delete the `my-project-bridge` folder yourself.)
 
 ## Report a problem
 
@@ -470,6 +471,18 @@ Open an issue on this repository's **Issues** page: what you did, what you expec
 version from **About**. Please leave out your own folder paths, project names and private details. Copy faults and
 the audit show labels instead of your private details, but they do name the project and its files: read the text
 before you paste it.
+
+## What's new in 0.1.10
+
+- **Backups:** a new Backups page zips your projects to a drive you choose (a USB drive is best). Each zip is read
+  back and every file checked before it counts, nothing is ever deleted to make room, and a drive is known by its
+  serial number, so a new letter does not matter. See **Backups** under the window's pages above.
+- **Uninstall** can put the Bridge's own folder, and the old copies an update kept beside it, in the Recycle Bin
+  for you (it asks; Enter keeps it).
+- `install.cmd` says first that Windows will ask an administrator's permission when it installs Node.js for you.
+- On a PC whose Windows account is called "User", "Admin" or "Owner", the audit no longer flags those everyday words
+  as your private details.
+- For developers: `npm test` runs every test (`npm run test:quick` leaves out the two slow ones).
 
 ## What's new in 0.1.09
 
