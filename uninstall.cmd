@@ -1,6 +1,7 @@
 @echo off
 rem Takes My Project Bridge off this PC's menus: stops it, removes the desktop shortcut, Start with Windows and the
-rem Load Bridge link (this Windows user only). Your files are not deleted: it says which folder to delete yourself.
+rem Load Bridge link (this Windows user only). Then it asks (default No) whether to put the Bridge's folder, and the
+rem old copies an update kept beside it, in the Recycle Bin once this window closes. Your projects are never touched.
 rem About > Uninstall in the Bridge does the same.
 setlocal
 cd /d "%~dp0"

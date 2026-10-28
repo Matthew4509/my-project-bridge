@@ -81,6 +81,12 @@ function run(exe, args, { env, input = '', cwd = HERE, timeout = 60000 } = {}) {
     assert(r.code === 0, r.out);
     assert(!fs.existsSync(lnk('desktop')) && !fs.existsSync(lnk('startup')) && regValue(TEST_KEY + '\\shell\\open\\command') === null, r.out);
     assert(r.out.includes(HERE) && fs.existsSync(path.join(HERE, 'server.js')));
+    // The Recycle Bin question defaults to No: no answer (Enter) keeps the folder.
+    assert(/Recycle Bin\? .*\[y\/N\]/.test(r.out) && /Kept\./.test(r.out), r.out);
+  });
+  await check('setup uninstall: "n" to the Recycle Bin question keeps the folder; only a typed y would move it', async () => {
+    const r = await run(process.execPath, ['tools/setup.js', 'uninstall'], { env, input: 'n\n' });
+    assert(r.code === 0 && /Kept\./.test(r.out) && fs.existsSync(path.join(HERE, 'server.js')), r.out);
   });
 
   // ---- install.cmd, start to finish, as a new user would (fresh data folder: the Welcome would show) ----

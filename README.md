@@ -9,17 +9,26 @@ PC, especially people who build them with AI coding tools such as Claude Code or
 - **Starts** any project's own dev server with one click, and stops it again.
 - **Audits** a project for common security faults, and for personal details you would give away by publishing it.
 - **Watches** your live sites (up, unsure or down) and your git backups (saved, pushed, or only on this PC).
+- **Backs up** your projects as zips to a USB drive you choose, each one read back and checked before it counts.
 - **Counts** the AI tokens each project has used (Claude Code and Codex).
 - **Stays on your PC.** It never sends your code to an AI or anywhere else, and never changes your projects' files.
 
 ## Quick start
 
-1. Download `my-project-bridge-<version>.zip` from this repository's **Releases** page.
-2. Unzip it **inside the folder that holds your projects**.
-3. Double-click **`install.cmd`**. The Bridge opens with your projects already listed.
+1. Download `my-project-bridge-<version>.zip` from this repository's
+   **[Releases](https://github.com/Matthew4509/my-project-bridge/releases/latest)** page.
+2. Unzip it, best **inside the folder that holds your projects**, so they are listed at once. Unzipped anywhere else,
+   open **Folders › Add working folder** and pick that folder.
+3. Double-click **`install.cmd`**. The Bridge opens in its own window.
 
-Needs Windows 10 or 11 and Node.js 22 or newer (`install.cmd` offers to install it). To try it with made-up projects
-first, double-click **`start-demo.cmd`**.
+Two Windows prompts you may see, both expected:
+
+- **"Windows protected your PC"** (the app is new and not from the Microsoft Store): **More info › Run anyway**. Or,
+  before unzipping, right-click the zip › **Properties** › tick **Unblock**.
+- **An admin prompt**, only if `install.cmd` installs Node.js for you (Windows' own installer, winget, asks first).
+
+Needs Windows 10 or 11 and Node.js 22 or newer (`install.cmd` offers to install it). Nothing else: no npm packages.
+To try it with made-up projects first, double-click **`start-demo.cmd`**.
 
 ## Good to know
 
@@ -31,7 +40,8 @@ first, double-click **`start-demo.cmd`**.
 - **Updates are signed.** **About › Updates** installs a newer version only when its maker signed it (a zip you
   pick yourself without that signature gets a warning first), and keeps the old one beside it to switch back.
 - **Meant for a PC with one Windows user.**
-- **To remove it:** `uninstall.cmd`, then delete the folder. Neither touches your projects.
+- **To remove it:** double-click `uninstall.cmd`. It takes away the shortcuts and can put the Bridge's folder in the
+  Recycle Bin for you. It never touches your projects, or your backups.
 
 ## More
 

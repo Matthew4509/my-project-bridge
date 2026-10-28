@@ -26,7 +26,9 @@ Everything in detail. The short version is in [README.md](README.md).
    (Enter = yes), sets up the Load Bridge link, then starts the Bridge. It opens in its own window. A small console
    window titled "My Project Bridge" starts minimised: that is the Bridge itself.
 3. Changed your mind? **About > Run setup again** changes any of the three, and **About > Uninstall** (or
-   `uninstall.cmd`) takes them all away. Neither deletes your files.
+   `uninstall.cmd`) takes them all away. `uninstall.cmd` then asks whether to put the Bridge's own folder (and any
+   old copies an update kept beside it) in the **Recycle Bin** once its window closes: type **y** for that; Enter
+   keeps it. Neither ever touches your projects or your backups.
 
 Already have Node.js? Double-clicking **`start-bridge.cmd`** works too: on its first start the **Welcome** window
 offers the same shortcut and Start with Windows.
@@ -151,13 +153,25 @@ and each project's git window gives the commands to copy into a terminal. The Br
 red for gone. Read it before you commit, to see what an AI changed. New files not yet in git are shown from the folder;
 binary files and very big changes are named, not shown. Read only: it saves, undoes and changes nothing.
 
-### Folders, Audits, Prompts, Help, About
+### Folders, Audits, Backups, Prompts, Help, About
 
 - **Folders:** your working folders (every folder inside one is a project), projects added one by one, and projects
   removed from the list. **Add working folder** opens the Windows folder picker.
 - **Audits:** the latest audit of each project, and **Private details…**: the details about you (email, phone, street,
   full name) the audit looks for in what you would publish. A detail is typed once and never shown again: it stays in
   the Bridge's `data` folder, and the page and the audit show only its label.
+- **Backups:** zips of your projects on a drive you choose (a USB drive is best). **Turn on backups** picks the
+  folder; the backups go in `My Project Bridge Backups\<project>\<project>-<date>-<time>.zip` inside it, with a .txt
+  beside each saying what is in it. Tick the projects to back up, then **Run backups now**: it shows each project's
+  size, the time it should take and whether it fits, before anything is written. Each zip is read back and every
+  file's size and CRC-32 checked before it counts; until then it is a `.zip.partial`. Nothing on the drive is ever
+  deleted to make room: when one is full, plug in another and **Add another drive** (the full one keeps its backups).
+  A drive is known by its serial number, so a new letter does not matter, and it carries its own index, so another
+  PC sees what it holds. Left out unless **Full backup** is ticked: folders a project rebuilds by itself
+  (node_modules, .venv and the like); the git history goes in. On a FAT32 stick (how most come) a zip cannot reach
+  4 GB: such a project is left out of the run and told why. **Keep** can keep only the last 3, 5 or 10 per project
+  (off by default). Quit, Uninstall and updates wait for a backup that is running. To restore: right-click a zip ›
+  **Extract All**.
 - **Prompts:** prompts you use again and again, as a tile per category. Click a tile to see its prompts, then
   **Copy** / **Edit** / **Remove**; **Edit** can move a prompt to another category. **New category**, **Add prompt**,
   and inside a category **Rename category** and **Delete category** (it deletes the prompts in it, and says how many

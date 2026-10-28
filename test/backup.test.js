@@ -237,7 +237,7 @@ check('engine: every backup is kept by default; keep-last-N deletes only its own
   const dir = path.join(usb, Backup.FOLDER_NAME, 'Kappa');
   for (let i = 0; i < 3; i++) { await b.start([p]); await waitJob(b); }
   assert.strictEqual(fs.readdirSync(dir).filter(n => n.endsWith('.zip')).length, 3);
-  mk(dir, 'mine.zip', 'not the office\'s');
+  mk(dir, 'mine.zip', 'not the Bridge\'s');
   assert.ok(b.setKeep(2).ok);
   await b.start([p]); await waitJob(b);
   const left = fs.readdirSync(dir);
@@ -369,10 +369,10 @@ check('a network folder (\\\\server\\share\\…) as the backup drive: added by i
   } finally { fs.renameSync(t + '-off', t); }
 });
 
-// ---- the 26 Oct audit's backup items (AHO-02, 03, 04, 10, 11, 14, 15) ----
+// ---- backup faults found in an earlier audit (BK-02, 03, 04, 10, 11, 14, 15) ----
 const txtOf = dir => fs.readFileSync(path.join(dir, fs.readdirSync(dir).find(f => f.endsWith('.txt'))), 'utf8');
 
-check('AHO-02: nothing says the read-back comes from the drive (Windows serves it from its cache): the page, README and the .txt', async () => {
+check('BK-02: nothing says the read-back comes from the drive (Windows serves it from its cache): the page, README and the .txt', async () => {
   const root = path.join(__dirname, '..');
   for (const f of ['lib/backup.js', 'lib/zip.js', 'public/js/backups.js', 'README.md', 'USER-GUIDE.md'])
     assert.ok(!/reads? (it )?back from the drive/i.test(fs.readFileSync(path.join(root, f), 'utf8')), f + ' still says "read back from the drive"');
@@ -386,7 +386,7 @@ check('AHO-02: nothing says the read-back comes from the drive (Windows serves i
   assert.ok(!/from the drive/.test(txt));
 });
 
-check('AHO-03: on a FAT32 drive a zip that would reach 4 GB is left out of the plan and says why; a run that hits the limit says FAT32, not full, and the rest go on', async () => {
+check('BK-03: on a FAT32 drive a zip that would reach 4 GB is left out of the plan and says why; a run that hits the limit says FAT32, not full, and the rest go on', async () => {
   const before = vols;
   const p = project('Pi'), q = project('Rho');
   try {
@@ -430,7 +430,7 @@ check('AHO-03: on a FAT32 drive a zip that would reach 4 GB is left out of the p
   } finally { vols = before; }
 });
 
-if (process.platform === 'win32') check('AHO-04: a junction is not followed, is counted in the run note and on the tile, and is listed in the .txt', async () => {
+if (process.platform === 'win32') check('BK-04: a junction is not followed, is counted in the run note and on the tile, and is listed in the .txt', async () => {
   const p = project('Sigma');
   const target = path.join(tmp, 'elsewhere'); mk(target, 'big.bin', Buffer.alloc(5000, 3));
   const CMD = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
@@ -453,7 +453,7 @@ if (process.platform === 'win32') check('AHO-04: a junction is not followed, is 
   assert.strictEqual(b2.rowOf(p).last.links, 1);
 });
 
-check('AHO-10: when the Bridge must stop mid-backup, the run is cancelled, the half-written zip removed and the fault recorded; Restart and Uninstall wait like Quit', async () => {
+check('BK-10: when the Bridge must stop mid-backup, the run is cancelled, the half-written zip removed and the fault recorded; Restart and Uninstall wait like Quit', async () => {
   let release; const held = new Promise(r => { release = r; });
   const b = engine({ check: async (f, e, o) => { await held; return checkZip(f, e, o); } });
   const p = project('Tau'), q = project('Upsilon');
@@ -497,7 +497,7 @@ check('AHO-10: when the Bridge must stop mid-backup, the run is cancelled, the h
   } finally { state.backups = realBackups; }
 });
 
-check('AHO-11: the drive going away after a passing check fails that project plainly, records the fault, and the rest are still tried', async () => {
+check('BK-11: the drive going away after a passing check fails that project plainly, records the fault, and the rest are still tried', async () => {
   let once = true;
   // The .partial vanishes (drive pulled out) between the check and its renaming.
   const b = engine({ check: async (f, e, o) => { const r = await checkZip(f, e, o); if (once) { once = false; fs.rmSync(f); } return r; } });
@@ -518,7 +518,7 @@ check('AHO-11: the drive going away after a passing check fails that project pla
   assert.match(again.rowOf(p).fault.fault, /could not be finished/);
 });
 
-check('AHO-14: a damaged or crafted backups-index.json (a __proto__ or constructor key) does not break Add drive, and nothing is polluted', async () => {
+check('BK-14: a damaged or crafted backups-index.json (a __proto__ or constructor key) does not break Add drive, and nothing is polluted', async () => {
   const usb = path.join(tmp, 'usb16');
   const p = project('Psi');
   const good = { key: keyOf(p.dir), file: 'Psi\\Psi-2026-10-01-1200.zip', at: Date.now() - 864e5, bytes: 10, source: 20, files: 1, checked: true };
@@ -547,15 +547,15 @@ check('AHO-14: a damaged or crafted backups-index.json (a __proto__ or construct
   assert.ok(!fs.readFileSync(file, 'utf8').includes('"__proto__"'), 'the bad keys are not written back');
 });
 
-check('AHO-15: a backup folder inside the office\'s own folder is refused, and nothing is made there', async () => {
-  const office = path.join(tmp, 'office'); fs.mkdirSync(office, { recursive: true });
-  const b = engine({ appDir: office });
+check('BK-15: a backup folder inside the Bridge\'s own folder is refused, and nothing is made there', async () => {
+  const appDir = path.join(tmp, 'bridge-app'); fs.mkdirSync(appDir, { recursive: true });
+  const b = engine({ appDir });
   const p = project('Omega');
-  for (const bad of [office, path.join(office, 'backups'), path.join(office, Backup.FOLDER_NAME)]) {
+  for (const bad of [appDir, path.join(appDir, 'backups'), path.join(appDir, Backup.FOLDER_NAME)]) {
     const r = await b.addDrive(bad, { projects: [p] });
     assert.strictEqual(r.ok, false, bad); assert.match(r.fault, /Bridge's own folder/);
   }
-  assert.deepStrictEqual(fs.readdirSync(office), [], 'nothing was made there');
+  assert.deepStrictEqual(fs.readdirSync(appDir), [], 'nothing was made there');
   assert.ok((await b.addDrive(path.join(tmp, 'usb17'), { projects: [p] })).ok, 'a folder beside it is fine');
 });
 

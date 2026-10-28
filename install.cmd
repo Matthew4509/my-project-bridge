@@ -40,6 +40,9 @@ echo  My Project Bridge needs Node.js 22 or newer, and Node.js is not installed 
 :offer_node
 echo.
 where winget >nul 2>&1 || goto :manual_node
+echo  It can be installed for you now with winget, Windows' own installer. Windows will ask for an administrator's
+echo  permission (a "Do you want to allow this app" window): choose Yes.
+echo.
 set "ANSWER="
 set /p "ANSWER= Install the Node.js LTS version now with winget? [Y/n] "
 if /i "%ANSWER:~0,1%"=="n" goto :manual_node

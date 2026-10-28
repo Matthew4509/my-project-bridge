@@ -1,0 +1,14 @@
+{
+  "name": "my-project-bridge",
+  "private": true,
+  "description": "All your projects in one window: list, start, audit, watch and back up the web projects on your Windows PC.",
+  "license": "GPL-3.0-only",
+  "repository": { "type": "git", "url": "https://github.com/Matthew4509/my-project-bridge.git" },
+  "engines": { "node": ">=22" },
+  "os": ["win32"],
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tools/test-all.js",
+    "test:quick": "node tools/test-all.js --quick"
+  }
+}
