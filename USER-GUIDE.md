@@ -480,6 +480,17 @@ version from **About**. Please leave out your own folder paths, project names an
 the audit show labels instead of your private details, but they do name the project and its files: read the text
 before you paste it.
 
+## What's new in 0.1.12
+
+- **Select all** and **Run backups** on the Projects page: tick the projects you want (a search narrows Select all
+  to the ones shown) and back them up in one go. The ticks are the same backup list as the Backups page. **Stop all**
+  is now in the Running panel only.
+- **Backups are safer:** if the backup drive fills up or is pulled out while a big file is going in, the backup
+  fails and says so, instead of listing that file as one that could not be read. The check after each backup now
+  also compares every file's own header in the zip with the zip's list, so a damaged header is caught (Windows
+  could otherwise unpack that file wrong), and a damaged zip can no longer fill your memory while it is checked.
+- **Backups are faster** on projects with many small files, such as a big `.git` folder.
+
 ## What's new in 0.1.11
 
 - **Phase this project**, a new prompt in **Prompts › My Project Bridge**: it has your AI split a project into
