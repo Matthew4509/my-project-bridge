@@ -163,7 +163,10 @@ binary files and very big changes are named, not shown. Read only: it saves, und
 - **Backups:** zips of your projects on a drive you choose (a USB drive is best). **Turn on backups** picks the
   folder; the backups go in `My Project Bridge Backups\<project>\<project>-<date>-<time>.zip` inside it, with a .txt
   beside each saying what is in it. Tick the projects to back up, then **Run backups now**: it shows each project's
-  size, the time it should take and whether it fits, before anything is written. Each zip is read back and every
+  size, the time it should take and whether it fits, before anything is written. One project: **Back up now…** in
+  its **…** menu on the Projects page (it asks where backups go the first time). A project that has been backed up
+  shows a zip mark beside its Git mark (● Zipped 2 h ago, ▲ Changed since zip, ✕ Zip backup failed): click it for its
+  backups. Each zip is read back and every
   file's size and CRC-32 checked before it counts; until then it is a `.zip.partial`. Nothing on the drive is ever
   deleted to make room: when one is full, plug in another and **Add another drive** (the full one keeps its backups).
   A drive is known by its serial number, so a new letter does not matter, and it carries its own index, so another
@@ -476,7 +479,8 @@ before you paste it.
 
 - **Backups:** a new Backups page zips your projects to a drive you choose (a USB drive is best). Each zip is read
   back and every file checked before it counts, nothing is ever deleted to make room, and a drive is known by its
-  serial number, so a new letter does not matter. See **Backups** under the window's pages above.
+  serial number, so a new letter does not matter. One project at a time: **Back up now…** in its **…** menu. See
+  **Backups** under the window's pages above.
 - **Uninstall** can put the Bridge's own folder, and the old copies an update kept beside it, in the Recycle Bin
   for you (it asks; Enter keeps it).
 - `install.cmd` says first that Windows will ask an administrator's permission when it installs Node.js for you.

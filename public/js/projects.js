@@ -144,7 +144,7 @@ function renderList() {
           r.isNew ? h('span', { class: 'badge b-new' }, 'New') : null,
           r.hiddenView ? h('span', { class: 'badge b-off' }, 'Hidden') : null,
           a ? h('button', { class: 'audit-link ' + a.cls, type: 'button', title: 'Last audit ' + a.when, onclick: () => showLastAudit(r) }, a.text) : null,
-          liveChip(r), gitChip(r)),
+          backupChip(r), liveChip(r), gitChip(r)),
         h('div', { class: 'desc', title: r.description + '\n' + r.dir }, r.description || r.dir)),
       h('div', { class: 'facts' },
         h('div', { class: 'num', title: 'This month: ' + fmtTok(r.tokensMonth) }, tokensCounting() ? 'counting…' : [h('b', null, fmtTok(r.tokens)), view === 'tiles' ? 'tokens' : (r.tokensMonth ? fmtTok(r.tokensMonth) + ' this month' : '')]),
@@ -288,6 +288,8 @@ function openMenu(r, anchor) {
   items.push(menuItem(0xEA18, 'Scan app (audit)', scanParts(r), () => scan(r)));
   if (r.audit) items.push(menuItem(0xE81C, 'Last audit', auditLabel(r.audit).when, () => showLastAudit(r)));
   items.push(menuItem(0xE909, 'Hosted live…', r.liveUrl ? hostOf(r.liveUrl) : 'add the address', () => liveDialog(r)));
+  const bm = backupMark(r.backup);
+  items.push(menuItem(0xE88E, 'Back up now…', bm ? bm.text.slice(2).toLowerCase() : 'zip it to your backup drive', () => openRun([r.id])));
   items.push(h('hr'));
   items.push(menuItem(0xE838, 'Open folder', r.folder, () => act('open-folder', r)));
   items.push(menuItem(0xE756, 'Open terminal here', null, () => act('open-terminal', r)));

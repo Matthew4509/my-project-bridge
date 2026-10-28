@@ -37,6 +37,21 @@ function backupMark(b) {
   return null;
 }
 
+// The mark on a project's row (Projects page), shaped and coloured like the Live and Git marks beside it. Called a
+// "zip backup" there, since the Git mark's "Backed up" means pushed. Only once there is something to say.
+function backupChip(r) {
+  const b = r.backup;
+  if (!b) return null;
+  const on = (mark, text, cls, say) => h('button', { class: 'live ' + cls, type: 'button', title: say, 'aria-label': 'Zip backup: ' + text, onclick: () => historyDialog(r.id) },
+    h('span', { class: 'dot', 'aria-hidden': 'true' }, mark), text);
+  if (b.busy) return on('◐', b.busy.state === 'waiting' ? 'Zip backup waiting' : 'Zipping ' + b.busy.pct + '%', 'l-none', 'A zip backup is running.');
+  if (b.fault) return on('✕', 'Zip backup failed', 'l-down', faultWords(b.fault));
+  if (b.last && b.changed) return on('▲', 'Changed since zip', 'l-unsure', 'Changed after its last zip backup, ' + bkAgo(b.last.at) + ' on ' + b.last.drive + '.');
+  if (b.last) return on('●', 'Zipped ' + bkAgo(b.last.at), 'l-up', 'Last zip backup ' + bkWhen(b.last.at) + ' on ' + b.last.drive + ', read back and checked.');
+  if (b.listed) return on('○', 'No zip backup yet', 'l-none', 'On the backup list, never backed up: Backups › Run backups now.');
+  return null;
+}
+
 async function setListed(ids, on) {
   try { await bk('/api/backup/list', { ids, on }); } catch (e) { info(e.message, true); }
   await load();
@@ -237,7 +252,7 @@ function drawJob(j) {
       i.fault ? h('span', null, faultWords(i.fault)) : null));
   }));
   const done = j.items.filter(i => i.state === 'done').length;
-  const head = busy ? h('p', null, h('b', null, 'Backing up to ' + j.drive + '…'), h('span', { class: 'muted' }, ' You can close this window: the backup goes on, and its progress shows on the Backups page.'))
+  const head = busy ? h('p', null, h('b', null, 'Backing up to ' + j.drive + '…'), h('span', { class: 'muted' }, ' You can close this window: the backup goes on, and its progress shows on each project.'))
     : h('p', null, h('b', null, done + ' of ' + j.items.length + ' backed up and checked on ' + j.drive + '.'),
       done && j.removable ? h('span', { class: 'muted' }, ' Safe to unplug the drive once Windows says so (the eject icon by the clock).') : null);
   runDialog('Run backups now', [head, list],
