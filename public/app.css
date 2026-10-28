@@ -64,6 +64,8 @@ h2{font-size:20px;line-height:28px;font-weight:600;margin:28px 0 8px}
 .cmd:hover{background:var(--hover)} .cmd:active{background:var(--press)}
 .cmd .ic{color:var(--accent)}
 .cmd-sep{width:1px;height:20px;background:var(--line2);margin:0 4px}
+.bk-tick{width:16px;height:16px;margin:0;accent-color:var(--accent);cursor:pointer;flex:none}
+.cmd[disabled]{opacity:.5;cursor:default} .cmd[disabled]:hover{background:none}
 .cmdbar .grow{flex:1}
 .search{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;background:var(--card);border:1px solid var(--line2);border-bottom-color:var(--muted);border-radius:4px;min-width:220px}
 .search:focus-within{border-bottom:2px solid var(--accent)}

@@ -169,6 +169,8 @@ async function openRun(ids) {
   if (st && !st.finished) return drawJob(st);
   const list = ids || rows.filter(r => r.backup && r.backup.listed).map(r => r.id);
   run = { ids: list, off: new Set(), drive: (run && run.drive) || null, plan: null };
+  // No backup drive yet: say so at once, before sizing every project (that takes a while for a long list).
+  try { if (list.length && !(await bk('/api/backup')).drives.length) { run.plan = { drives: [] }; return drawPlan(); } } catch { /* the plan says why */ }
   if (!list.length) {
     return runDialog('Run backups now', [h('p', null, 'No project is on the backup list yet.'),
       h('p', { class: 'muted' }, 'Tick each project you want backed up on the Backups page (or Tick all), then come back here. The list is kept.')],

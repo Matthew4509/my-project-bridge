@@ -287,4 +287,4 @@ $('sort').addEventListener('change', () => { pref.set('sort', $('sort').value); 
 $('view-list').addEventListener('click', () => setView('list'));
 $('view-tiles').addEventListener('click', () => setView('tiles'));
 $('cmd-hidden').addEventListener('click', toggleHidden);
-$('cmd-stopall').addEventListener('click', stopAllDialog);
+

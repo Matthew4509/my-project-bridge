@@ -87,8 +87,12 @@ To try it first with made-up projects, double-click `start-demo.cmd` (see [Demo]
 ### Projects page
 
 The command bar has **Add project**, **Scan folders** (says what is new or gone since the last scan), **Refresh**,
-**List / Tiles**, the sort order (Last updated, **My order**, Most tokens, Name, Running first), **Stop all**,
-**Show hidden** and search.
+**List / Tiles**, the sort order (Last updated, **My order**, Most tokens, Name, Running first), **Select all** and
+**Run backups**, **Show hidden** and search.
+
+**Backups from the list:** each project has a tick box before its name. Tick the ones to back up (**Select all**
+ticks every project shown, so a search narrows it; then untick any you do not want), and press **Run backups (n)**.
+The ticks are kept, and are the same backup list as on the Backups page.
 
 Each project shows its name, one sentence about it, tokens used, when it was last updated, its state, its last
 audit and where it stands with **git** (click it for the details), with:
@@ -126,7 +130,7 @@ answer, the Bridge says this PC is probably offline instead. An address on this 
 **Hide or Remove:** Hide keeps a project on the list but out of view (**Show hidden** brings it back). Remove takes it
 off the list (**Folders > Removed from the list** brings it back). Neither one touches the project's files.
 
-**Stop all** stops everything the Bridge started. A tick adds the other programs holding your projects' ports; each is
+**Stop all** (in the **Running** panel on the left) stops everything the Bridge started. A tick adds the other programs holding your projects' ports; each is
 listed first with its program name, process number and command line. Windows' own programs, the Bridge and its
 window are never stopped.
 

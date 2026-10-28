@@ -54,7 +54,9 @@
           <option value="name">Name</option>
           <option value="running">Running first</option>
         </select>
-        <button class="cmd" id="cmd-stopall" type="button" hidden><i class="ic">&#xE71A;</i><span id="stopall-label">Stop all</span></button>
+        <div class="cmd-sep"></div>
+        <label class="cmd" title="Tick every project shown for backup (untick any you do not want)"><input type="checkbox" id="bk-all" class="bk-tick" aria-label="Select all projects for backup">Select all</label>
+        <button class="cmd" id="cmd-run-backups" type="button" title="Back up every ticked project to your backup drive (it shows the size and time first)"><i class="ic">&#xE896;</i><span id="run-backups-label">Run backups</span></button>
         <button class="cmd" id="cmd-hidden" type="button" aria-pressed="false" hidden><i class="ic">&#xE7B3;</i><span id="hidden-label">Show hidden</span></button>
         <div class="grow"></div>
         <label class="search"><i class="ic">&#xE721;</i><input type="search" id="search" placeholder="Search projects" aria-label="Search projects"></label>
