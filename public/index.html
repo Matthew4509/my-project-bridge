@@ -19,6 +19,7 @@
     <button class="nav-item" data-page="projects"><i class="ic">&#xE8F1;</i><span class="lbl">Projects</span><span class="count" id="n-projects"></span></button>
     <button class="nav-item" data-page="folders"><i class="ic">&#xE8B7;</i><span class="lbl">Folders</span><span class="count" id="n-folders"></span></button>
     <button class="nav-item" data-page="audits"><i class="ic">&#xEA18;</i><span class="lbl">Audits</span></button>
+    <button class="nav-item" data-page="backups"><i class="ic">&#xE88E;</i><span class="lbl">Backups</span></button>
     <button class="nav-item" data-page="prompts"><i class="ic">&#xE8BD;</i><span class="lbl">Prompts</span><span class="count" id="n-prompts"></span></button>
     <section class="pcpanel" id="pcpanel" aria-label="This PC"><div class="pc-head">This PC <span id="pc-host"></span></div><div class="rings" id="pc-rings"></div><div class="pc-facts" id="pc-facts"></div></section>
     <section class="runpanel" id="runpanel" aria-label="Running"></section>
@@ -80,6 +81,39 @@
       <h2>Removed from the list</h2>
       <p class="lead">Removing a project only takes it off the Bridge's list; the folder and its files are not touched. Bring one back here.</p>
       <div class="card" id="hidden-list"></div>
+    </section>
+
+    <!-- Backups -->
+    <section class="page" id="page-backups" hidden>
+      <div class="page-head"><h1>Backups</h1></div>
+      <p class="lead">Zips of your projects on a drive you choose (a USB drive is best), each read back and checked before it counts. Backups are only ever added: nothing on the drive is deleted to make room.</p>
+      <div class="cmdbar" role="toolbar" aria-label="Backup commands">
+        <button class="cmd" id="cmd-backup-run"><i class="ic">&#xE896;</i>Run backups now…</button>
+        <button class="cmd" id="cmd-backup-add" hidden><i class="ic">&#xE710;</i>Add another drive…</button>
+        <button class="cmd" id="cmd-backup-all" hidden><i class="ic">&#xE73A;</i>Tick all</button>
+        <button class="cmd" id="cmd-backup-none" hidden><i class="ic">&#xE739;</i>Untick all</button>
+        <div class="grow"></div>
+        <span class="lead" style="margin:0 8px 0 0;font-size:12px" id="bk-listed"></span>
+      </div>
+      <h2 style="margin-top:12px">Backup drives</h2>
+      <div class="card" id="bk-drives"></div>
+      <p class="lead" style="margin-top:8px">A full drive keeps its backups: plug in another and add it. A drive is known by its serial number, so a new letter (E: one day, F: the next) does not matter. With two plugged in, Run backups now asks which to use.</p>
+      <h2>Projects</h2>
+      <p class="lead">Tick a project to put it on the backup list; Run backups now takes every ticked project.</p>
+      <div class="card" id="bk-projects"></div>
+      <h2>What goes in</h2>
+      <div class="card">
+        <div class="set-row"><div class="txt"><b>Keep</b><span id="bk-keep-note">Only zips the Bridge made and recorded are ever deleted, and only after a newer one passed its check.</span></div>
+          <select class="sel" id="bk-keep" aria-label="How many backups to keep">
+            <option value="0">Keep every backup (nothing is deleted)</option>
+            <option value="3">Keep the last 3 per project</option>
+            <option value="5">Keep the last 5 per project</option>
+            <option value="10">Keep the last 10 per project</option>
+          </select></div>
+        <div class="set-row"><div class="txt"><b>Full backup</b><span id="bk-what"></span>
+          <label class="tick"><input type="checkbox" id="bk-full">Take the rebuildable folders too (bigger and slower, nothing to rebuild)</label></div></div>
+        <div class="set-row"><div class="txt"><b>On the drive</b><span id="bk-where"></span><span>A file that is locked or in use is listed in the .txt beside the zip; the rest still go in.</span></div></div>
+      </div>
     </section>
 
     <!-- Audits -->
@@ -228,6 +262,7 @@
 <script src="js/setup.js"></script>
 <script src="js/update.js"></script>
 <script src="js/private.js"></script>
+<script src="js/backups.js"></script>
 <script src="js/actions.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/boot.js"></script>

@@ -5,9 +5,10 @@
 async function load(fresh) {
   try {
     const d = await api('/api/projects' + (fresh === true ? '?fresh=1' : ''));
-    rows = d.projects; stats = d.stats; loaded = true; liveRevSeen = stats.liveRev; rowsRevSeen = stats.rowsRev;
+    rows = d.projects; stats = d.stats; loaded = true; liveRevSeen = stats.liveRev; rowsRevSeen = stats.rowsRev; backupRevSeen = stats.backupRev;
     if (!stats.welcomed && !welcomeShown && !$('dlg').open) welcomeDialog();
     renderList(); renderStatus(); announceDown();
+    if (!$('page-backups').hidden) renderBackups();
     if (!$('page-audits').hidden) renderAudits();
     if (stats.tokensBusy) setTimeout(load, 4000);
   } catch (e) { info(e.message, true); }

@@ -14,6 +14,7 @@ function show(page) {
   closeMenu();
   if (base === 'folders') loadFolders();
   if (base === 'audits') renderAudits();
+  if (base === 'backups') loadBackups();
   if (base === 'prompts') { let cat = ''; try { cat = sub ? decodeURIComponent(sub) : ''; } catch {} loadPrompts(cat); } // a mistyped %-escape opens the tiles
   if (base === 'about') { loadShortcuts(); loadSetup(); loadGitProgram(); loadUpdate(); }
 }
