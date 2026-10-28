@@ -58,7 +58,7 @@ const asides = (dir, base) => fs.readdirSync(dir).filter(n => n.startsWith(base 
     const st = Prompts.load(f);
     // (a file from before the start-line prompt also gets that starter once, at the front)
     assert.deepStrictEqual(st.categories.map(c => [c.id, c.name]), [['starter-bridge', 'My Project Bridge'], ['mine', 'My prompts'], ['c', 'C'], ['b', 'Untitled']]);
-    assert.deepStrictEqual(st.prompts.map(p => [p.id, p.category]), [['starter-bridge-1', 'starter-bridge'], ['p', 'mine'], ['q', 'c']]);
+    assert.deepStrictEqual(st.prompts.map(p => [p.id, p.category]), [['starter-bridge-1', 'starter-bridge'], ['starter-bridge-2', 'starter-bridge'], ['p', 'mine'], ['q', 'c']]);
   });
 
   await check('a saved audit with junk findings is read as far as it makes sense', () => {

@@ -61,7 +61,7 @@ async function main() {
     assert.strictEqual(st.categories[0].name, 'My Project Bridge');
     const p = st.prompts.find(x => x.category === st.categories[0].id);
     assert.deepStrictEqual([p.title, p.text], [START_LINE_TITLE, START_LINE_PROMPT]);
-    assert.deepStrictEqual(JSON.parse(fs.readFileSync(pf, 'utf8')).added, ['bridge']);
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(pf, 'utf8')).added, ['bridge', 'bridge-2']);
   });
   const old = path.join(WS, 'data', 'prompts-old.json');
   fs.writeFileSync(old, JSON.stringify({ categories: [{ id: 'mine', name: 'My prompts' }, { id: 'starter-seo', name: 'SEO specialist' }],
@@ -69,7 +69,7 @@ async function main() {
   await check('a file from an earlier version gets it once, at the front, and keeps everything it had', () => {
     const st = Prompts.load(old);
     assert.deepStrictEqual(st.categories.map(c => c.id), ['starter-bridge', 'mine', 'starter-seo']);
-    assert.deepStrictEqual(st.prompts.map(p => p.id), ['starter-bridge-1', 'a1']);
+    assert.deepStrictEqual(st.prompts.map(p => p.id), ['starter-bridge-1', 'starter-bridge-2', 'a1']);
     Prompts.load(old);
     assert.strictEqual(Prompts.load(old).prompts.filter(p => p.id === 'starter-bridge-1').length, 1, 'added twice');
   });
@@ -91,11 +91,38 @@ async function main() {
       assert(!fs.existsSync(ro + '.tmp'), 'a half-written copy was left beside it');
     } finally { fs.chmodSync(ro, 0o666); }
     Prompts.load(ro);
-    assert.deepStrictEqual(JSON.parse(fs.readFileSync(ro, 'utf8')).added, ['bridge']);
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(ro, 'utf8')).added, ['bridge', 'bridge-2']);
+  });
+  // Phase this project (0.1.11): one prompt added to a category the person already has.
+  const PHASE = require('../lib/prompt-starters').starters('').prompts.find(p => p.id === 'starter-bridge-2');
+  await check('Phase this project ships in My Project Bridge, and names no folder, address or person', () => {
+    assert.strictEqual(PHASE.title, 'Phase this project');
+    assert(/Split this project into phases/.test(PHASE.text) && /START HERE/.test(PHASE.text));
+    assert(!/[A-Za-z]:\\|\/Users\/|@|https?:|Dell|Matthew/i.test(PHASE.text));
+  });
+  await check('a file from 0.1.10 or earlier (My Project Bridge given) gets Phase this project once, in that category', () => {
+    const f = path.join(WS, 'data', 'prompts-0109.json');
+    fs.writeFileSync(f, JSON.stringify({ added: ['bridge'], categories: [{ id: 'starter-bridge', name: 'My Project Bridge' }, { id: 'mine', name: 'My prompts' }],
+      prompts: [{ id: 'starter-bridge-1', category: 'starter-bridge', title: START_LINE_TITLE, text: START_LINE_PROMPT }, { id: 'a1', category: 'mine', title: 'Mine', text: 'My own prompt.' }] }));
+    const st = Prompts.load(f);
+    assert.deepStrictEqual(st.categories.map(c => c.id), ['starter-bridge', 'mine']);
+    assert.deepStrictEqual(st.prompts.filter(p => p.category === 'starter-bridge').map(p => p.id).sort(), ['starter-bridge-1', 'starter-bridge-2']);
+    Prompts.load(f);
+    assert.strictEqual(Prompts.load(f).prompts.filter(p => p.id === 'starter-bridge-2').length, 1, 'added twice');
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(f, 'utf8')).added, ['bridge', 'bridge-2']);
+  });
+  await check('already saved word for word (in My prompts) it is not added again, and no empty category comes back', () => {
+    const f = path.join(WS, 'data', 'prompts-own-phase.json');
+    fs.writeFileSync(f, JSON.stringify({ added: ['bridge'], categories: [{ id: 'mine', name: 'My prompts' }],
+      prompts: [{ id: 'm1', category: 'mine', title: 'My phase prompt', text: PHASE.text + '\n' }] }));
+    const st = Prompts.load(f);
+    assert.deepStrictEqual(st.categories.map(c => c.id), ['mine']);
+    assert.deepStrictEqual(st.prompts.map(p => p.id), ['m1']);
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(f, 'utf8')).added, ['bridge', 'bridge-2']);
   });
   await check('an edit elsewhere in the file keeps the record that it was given', () => {
     assert(Prompts.upsert(old, { category: 'mine', title: 'Two', text: 'Another.' }).ok);
-    assert.deepStrictEqual(JSON.parse(fs.readFileSync(old, 'utf8')).added, ['bridge']);
+    assert.deepStrictEqual(JSON.parse(fs.readFileSync(old, 'utf8')).added, ['bridge', 'bridge-2']);
     assert(!Prompts.load(old).categories.some(c => c.id === 'starter-bridge'));
   });
 

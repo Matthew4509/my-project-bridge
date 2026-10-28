@@ -178,8 +178,9 @@ binary files and very big changes are named, not shown. Read only: it saves, und
 - **Prompts:** prompts you use again and again, as a tile per category. Click a tile to see its prompts, then
   **Copy** / **Edit** / **Remove**; **Edit** can move a prompt to another category. **New category**, **Add prompt**,
   and inside a category **Rename category** and **Delete category** (it deletes the prompts in it, and says how many
-  first). Search looks across every category, or inside the one open. A new Bridge starts with nine categories of five
-  prompts each (SEO, writing, programming, marketing, business, teaching, research, UX design, photography); words in
+  first). Search looks across every category, or inside the one open. A new Bridge starts with **My Project Bridge** (the start-line prompt
+  and **Phase this project**) and nine categories of five prompts each (SEO, writing, programming, marketing,
+  business, teaching, research, UX design, photography); words in
   [brackets] are yours to fill in. Prompts saved before categories go into **My prompts**. Kept in `data\prompts.json` on this PC; the Bridge never sends or runs them.
 - **Help:** how the Bridge works, what each git mark means and what to do about it, what leaves this PC, and what to
   do when something goes wrong.
@@ -474,6 +475,15 @@ Open an issue on this repository's **Issues** page: what you did, what you expec
 version from **About**. Please leave out your own folder paths, project names and private details. Copy faults and
 the audit show labels instead of your private details, but they do name the project and its files: read the text
 before you paste it.
+
+## What's new in 0.1.11
+
+- **Phase this project**, a new prompt in **Prompts › My Project Bridge**: it has your AI split a project into
+  phases small enough for one thread each, with an estimate, a "done when" check and a model for each, a `PLAN.md`,
+  and a handover file and a START HERE line at the end of every phase. Write your usual request where it says
+  [your normal prompt goes here]. A Bridge from before gets it once; if you already saved the same prompt yourself,
+  it is not added twice.
+- For developers: the tests pass on a Windows checkout with CRLF line endings (Git for Windows' default).
 
 ## What's new in 0.1.10
 

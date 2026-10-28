@@ -65,7 +65,7 @@ check('controls at least 24 px: nav items do not shrink, row marks, badges, link
 check('a window takes focus on a field it can type in, else its main button, never a hidden copy block (X-11)', () => {
   const DIALOGS = read('js/dialogs.js');
   assert(/d\.showModal\(\);/.test(DIALOGS), 'a modal window: Tab stays inside from the start');
-  assert(/\.find\(x => !x\.readOnly && !x\.disabled && x\.getClientRects\(\)\.length\) \|\| \$\('dlg-foot'\)\.querySelector\('\.accent'\);\n  if \(f\) f\.focus\(\);/.test(DIALOGS),
+  assert(/\.find\(x => !x\.readOnly && !x\.disabled && x\.getClientRects\(\)\.length\) \|\| \$\('dlg-foot'\)\.querySelector\('\.accent'\);\r?\n  if \(f\) f\.focus\(\);/.test(DIALOGS),
     'Welcome\'s copy block (a hidden, read-only textarea) is skipped, so Done takes the focus, not the first tick box');
 });
 
