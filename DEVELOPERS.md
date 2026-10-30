@@ -15,8 +15,8 @@ How to test the Bridge and where its code lives. For what it does, see [README.m
 - `node tools/benchmark.js` (`--missed`, `--only <id>`, `--json <out>`): the scanner's benchmark. `test/museum/`
   holds one small made-up project per kind of real fault (131 kinds from 839 faults found in real projects, plus
   must-stay-quiet cases), each written with the fault and with it fixed. It prints how many kinds the scan
-  catches, per bucket (R one-file rule, X across files, L live site, served by little sites on this PC), and how
-  many real faults those kinds stand for. `node test/museum.test.js` fails if a kind in `test/museum/baseline.json`
+  catches, per bucket (R one-file rule, X across files, L live site, served by little sites on this PC; A AI agent
+  files, 18 attack kinds), and how many real faults those kinds stand for. `node test/museum.test.js` fails if a kind in `test/museum/baseline.json`
   is no longer caught or a fixed copy is flagged.
 - `node test/rules-more.test.js`: every rule in `lib/rules-more.js` fires on one file and stays quiet on the same
   file fixed (written differently from the museum's copies), plus the shapes the rules once flagged wrongly on real
@@ -31,6 +31,15 @@ How to test the Bridge and where its code lives. For what it does, see [README.m
 - `node test/cross.test.js`: every rule in `lib/cross.js` fires on a small made-up project and stays quiet on it
   fixed, plus the shapes these rules once flagged wrongly on real projects (a library function, a policy that covers
   one page, a test suite with its own failure counter ...), as must-stay-quiet projects.
+- `node test/agents.test.js`: the AI agent files check (`lib/agents.js`): Check a skill on pasted text, a folder and a
+  zip (never unpacked to disk), each verdict, what a skill does (scripts, hooks, services, keys), a key sent to a
+  service the skill never names, the same install line in a guide (a warning) and in a hook (Critical), the agent
+  files in a project audit (a worktree copy left out, a file git ignores softened), and long lines. Each rule's
+  should-fire and must-stay-quiet pair is in the museum's bucket A (`test/museum/cases-6-agent-files.js`).
+- `node tools/skill-check.js [folder | zip]`: the same check from a terminal; with no folder, every installed skill.
+- `node test/scanfix.test.js`: what a site really carries: a test script left in the web root, a key behind
+  thousands of pictures, a UTF-16 `.env`, a key in a long minified line, a file too big to read (named in a note),
+  a `launch.json` with a BOM.
 - `node test/roots.test.js`: which folders are taken for old copies of the app (and which are not: `frontend/` and
   `backend/`, a library folder with a version), the notes that name them, and `auditInclude`.
 - `node tools/calibrate.js save <out.json>` then `compare <before.json> <after.json>`: the audit over every project in
@@ -101,6 +110,7 @@ How to test the Bridge and where its code lives. For what it does, see [README.m
 | `lib/platform/` | Every call to the operating system: `windows.js` and its `.ps1` helpers; other systems get `unsupported.js` until they have their own file |
 | `lib/projects.js` | Folders, names, descriptions, start commands |
 | `lib/audit.js`, `lib/audit-store.js` | The audit and its saved reports |
+| `lib/agents.js`, `lib/routes/skills.js`, `public/js/skills.js`, `tools/skill-check.js` | AI agent files: their checks in the audit, and Audits › Check a skill (also from a terminal) |
 | `lib/disclosure.js`, `tools/disclose.js` | The disclosure pass (private details, other projects' names, AI trail, local paths; git history, commit emails, zips); `tools/bake.js` uses the same matcher before it zips |
 | `lib/judged.js`, `tools/calibrate.js` | The judged list (Not a fault, Bring back, report-back import) kept in `data/judged.json`; the before/after over every project |
 | `lib/live.js`, `lib/live-state.js` | Hosted live checks and live vs local |

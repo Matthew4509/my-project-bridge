@@ -109,13 +109,14 @@ audit and where it stands with **git** (click it for the details), with:
 
 **… › Hosted live…** takes the address the project is hosted at (`example.com` is enough). The Bridge then asks for
 that page once when it starts and then every 5, 10 or 15 minutes, as chosen under **Check every** in the Live sites
-panel (15 to start with; one site at a time, two addresses on one domain 10 s apart), and shows a light beside the
+panel (15 to start with; up to 4 domains at once, two addresses on one domain 10 s apart), and shows a light beside the
 project's name, and in the Live sites panel how long the page took to answer:
 
 - **● Live** (green): the page answered normally over https.
 - **▲ Live?** (amber, unsure): it answered, but something needs a look: a firewall or security-check page (your own
   PC may be blocked by the host), a default server page, a password prompt, plain http, a move to another domain, a
-  certificate that expires within 14 days, a slow answer, or an answer only on the second try.
+  certificate that expires within 14 days, a slow answer, a page still arriving after 30 seconds (the check stops
+  there, so one slow site never holds up the others), or an answer only on the second try.
 - **✕ Down** (red): no answer (asked twice), the name does not resolve, a server error (5xx), a 404 home page, an
   expired or wrong certificate, a redirect loop, or an "account suspended" / parked-domain page.
 
@@ -163,7 +164,8 @@ binary files and very big changes are named, not shown. Read only: it saves, und
   removed from the list. **Add working folder** opens the Windows folder picker.
 - **Audits:** the latest audit of each project, and **Private details…**: the details about you (email, phone, street,
   full name) the audit looks for in what you would publish. A detail is typed once and never shown again: it stays in
-  the Bridge's `data` folder, and the page and the audit show only its label.
+  the Bridge's `data` folder, and the page and the audit show only its label. **Check a skill…** checks a Claude Code
+  skill, plugin or agent folder before you install it (see [The built-in audit](#the-built-in-audit)).
 - **Backups:** zips of your projects on a drive you choose (a USB drive is best). **Turn on backups** picks the
   folder; the backups go in `My Project Bridge Backups\<project>\<project>-<date>-<time>.zip` inside it, with a .txt
   beside each saying what is in it. Tick the projects to back up, then **Run backups now**: it shows each project's
@@ -209,7 +211,10 @@ binary files and very big changes are named, not shown. Read only: it saves, und
   close, put the new version in its own folder (so shortcuts, Start with Windows and the Load Bridge link keep
   working), move your `data` folder, `projects.json` and any files of your own across, and start again; the window
   reloads by itself. If anything goes wrong on the way, every folder is put back and the old version starts again,
-  and About says what happened. Your local copies stop with the Bridge.
+  and About says what happened. In the rare case that the old version cannot be put back either (something kept
+  hold of the folders), a file named `UPDATE-FAILED.txt` beside the Bridge's folder says which two folders hold your
+  Bridge and how to put it back (quit it, rename the `.old-<version>` folder back to the Bridge's folder name, start
+  it), and the Bridge is started from the folder it is in meanwhile. Your local copies stop with the Bridge.
 - The version you had stays beside the new one (a folder named `.<Bridge folder>.old-<version>`, which the Bridge
   does not list as a project). **Switch to <version>** goes back to it the same way; **Remove it…** moves it to the
   Recycle Bin.
@@ -330,6 +335,25 @@ audit lists the record of every rule it shows that someone has judged.
   needs; backups or logs written into the web folder with no deny rule for them; a Content-Security-Policy that
   blocks the site's own form or script; long-cached scripts and styles linked with no version; a test file that
   checks nothing.
+- **AI agent files (`lib/agents.js`):** the files Claude Code, Codex, Cursor and the like read as instructions or run
+  on their own: `CLAUDE.md`, `AGENTS.md`, every `SKILL.md` and the scripts beside it, commands, `.claude/settings.json`
+  (hooks and permissions) and `.mcp.json`. A fault here is an attack on you, the person using the agent: an
+  instruction hidden where the agent reads it and you do not (an HTML comment, an element styled out of sight,
+  invisible Unicode characters, direction-flipping characters), text telling the agent to ignore its other
+  instructions, keep something from you or send keys away, a hook or script that downloads a program and runs it or
+  runs encoded code, a script that reads your SSH keys or saved passwords, collects every environment variable,
+  posts to a drop box (a chat webhook, a paste site, a tunnel, a bare IP address) or sends your key to a service the
+  skill never names, one that sets itself up to run again later, permission checks switched off, any command allowed
+  without asking, an MCP server fetched at whatever version is newest, and every project MCP server switched on.
+  A worktree copy inside `.claude` is the project again, so it is not read twice. The same install line is a warning
+  in a guide (it names where the program comes from) and Critical in a hook or script, which runs it on its own.
+- **Audits › Check a skill…** runs the same check on a skill, plugin or agent folder **before** you install it:
+  paste its `SKILL.md`, or choose its folder or its `.zip` / `.skill` file. It answers **Do not install**, **Read these
+  first** or **No known attack found**, and lists what the skill does: the scripts and hooks it runs, the services it
+  talks to and the keys it reads. A skill that runs code is never called safe, only "no known attack found": no scan
+  can prove code is safe. Nothing in it is run, and nothing is sent anywhere. From a terminal,
+  `node tools/skill-check.js <folder or zip>` does the same; with no folder it checks every skill you already have
+  (`~/.claude/skills`, `~/.claude/plugins` and `.claude/skills` in the folder you run it from).
 - The same fault in several release copies of a file is reported once, with the other copies listed.
 - **Localhost (only while the copy runs, only localhost addresses):** security headers, session cookie flags, folder
   listing, and whether files like `/.env`, `/.git`, editor FTP settings, `/error_log` or `/backup.zip` can be
@@ -479,6 +503,20 @@ Open an issue on this repository's **Issues** page: what you did, what you expec
 version from **About**. Please leave out your own folder paths, project names and private details. Copy faults and
 the audit show labels instead of your private details, but they do name the project and its files: read the text
 before you paste it.
+
+## What's new (not released yet)
+
+- **Check a skill** (Audits › Check a skill…): paste a skill, or choose its folder or zip, and see before you install
+  it whether it hides instructions for the agent, sends keys or files away, downloads and runs a program, or sets
+  itself up to run again. It lists what the skill runs, the services it talks to and the keys it reads.
+- **The audit reads AI agent files** in every project: `CLAUDE.md`, `AGENTS.md`, skills and their scripts, hooks,
+  permissions and MCP servers (17 new checks). It used to leave the `.claude` folder out altogether.
+- **Scanner fixes:** a `.env` saved by Windows PowerShell (UTF-16) is read for keys; a key inside a long minified
+  line is found; thousands of pictures no longer use up the file limit before the code is read; a test script left
+  inside the web folder is checked as the live code it is; a file too big to read, or one that could not be opened,
+  is named in a note instead of skipped without a word; a fault in a file git ignores is a warning, not "fix first";
+  a `launch.json` saved with a BOM is read; projects folders called "code" or "work" are not taken for private
+  details.
 
 ## What's new in 0.1.12
 

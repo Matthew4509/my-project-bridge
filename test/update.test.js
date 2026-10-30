@@ -398,6 +398,64 @@ async function main() {
       assert.ok(fs.existsSync(path.join(s.app, 'data', 'settings.json')) && !fs.existsSync(s.old));
     } finally { holder.kill(); await sleep(300); }
   });
+  await check('the new copy cannot go in and the old one cannot go back: UPDATE-FAILED.txt says how, and a Bridge is started from the copy left', async () => {
+    const s = swapSetup();
+    const marker = path.join(s.parent, 'started-from.txt');
+    // Every move into the Bridge's folder is refused, as a scanner that never lets go would.
+    const real = swap.io.rename;
+    swap.io.rename = (from, to) => { if (to === s.app) throw Object.assign(new Error('held'), { code: 'EBUSY' }); return real(from, to); };
+    try {
+      const r = await swap.main(plan(s, { tries: 1, backTries: 1, start: { exe: process.execPath, args: ['-e', 'require("fs").writeFileSync(' + JSON.stringify(marker) + ', process.cwd())'], cwd: s.app } }));
+      assert.ok(!r.ok && r.stranded && /the new copy could not be moved into place/.test(r.why), JSON.stringify(r));
+      assert.ok(!fs.existsSync(s.app), 'the Bridge\'s folder is not made again (it would be in the way of putting the old one back)');
+      assert.ok(fs.existsSync(path.join(s.old, 'data', 'settings.json')) && fs.existsSync(path.join(s.incoming, 'server.js')));
+      const txt = fs.readFileSync(path.join(s.parent, 'UPDATE-FAILED.txt'), 'utf8');
+      assert.ok(txt.includes('".app.old-0.1.98"') && txt.includes('".app.new-x"') && txt.includes('to "app"') && /start-bridge\.cmd/.test(txt), txt);
+      const last = JSON.parse(fs.readFileSync(path.join(s.parent, '.app.update-last.json'), 'utf8'));
+      assert.deepEqual([last.ok, last.stranded, last.old, last.incoming, last.startedFrom], [false, true, '.app.old-0.1.98', '.app.new-x', '.app.old-0.1.98']);
+      for (let i = 0; i < 25 && !fs.existsSync(marker); i++) await sleep(200);
+      const cwd = fs.readFileSync(marker, 'utf8');
+      assert.equal(cwd.toLowerCase(), s.old.toLowerCase(), 'started from the old copy');
+      assert.ok(fs.existsSync(cwd));
+    } finally { swap.io.rename = real; }
+    // With no old copy to start (no server.js), the new one is started instead.
+    const t = swapSetup();
+    const marker2 = path.join(t.parent, 'started-from.txt');
+    swap.io.rename = (from, to) => { if (to === t.app) throw Object.assign(new Error('held'), { code: 'EBUSY' }); if (to === t.old) { real(from, to); fs.rmSync(path.join(to, 'server.js')); return; } return real(from, to); };
+    try {
+      const r = await swap.main(plan(t, { tries: 0, backTries: 0, start: { exe: process.execPath, args: ['-e', 'require("fs").writeFileSync(' + JSON.stringify(marker2) + ', process.cwd())'], cwd: t.app } }));
+      assert.equal(r.startedFrom, '.app.new-x');
+      for (let i = 0; i < 25 && !fs.existsSync(marker2); i++) await sleep(200);
+      assert.equal(fs.readFileSync(marker2, 'utf8').toLowerCase(), t.incoming.toLowerCase());
+    } finally { swap.io.rename = real; }
+  });
+  await check('the plan file holds only what the restart needs, never the rest of the environment; the helper lays it over its own', async () => {
+    process.env.FAKE_SECRET_KEY = 'sk-fake-not-a-real-key';
+    let dir;
+    try {
+      const w = W({ dry: false, wait: [] });
+      const made = update.writePlan({ mode: 'restart', route: 'git', from: '0.1.98', to: '0.1.99' }, w);
+      dir = made.dir;
+      const text = fs.readFileSync(made.planFile, 'utf8');
+      assert.ok(!text.includes('FAKE_SECRET_KEY') && !text.includes('sk-fake-not-a-real-key'));
+      const p = JSON.parse(text);
+      const allowed = ['PATH', 'PATHEXT', 'SYSTEMROOT', 'SYSTEMDRIVE', 'WINDIR', 'COMSPEC', 'TEMP', 'TMP', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'PROGRAMDATA', 'PROGRAMFILES', 'BRIDGE_DATA', 'BRIDGE_ROOT', 'BRIDGE_PORT'];
+      for (const k of Object.keys(p.start.env)) assert.ok(allowed.includes(k.toUpperCase()), k + ' is written to the plan');
+      assert.ok(Object.keys(p.start.env).some(k => /^path$/i.test(k)) && p.start.env.BRIDGE_PORT && p.start.cwd === APP);
+    } finally { delete process.env.FAKE_SECRET_KEY; if (dir) fs.rmSync(dir, { recursive: true, force: true }); }
+    // The restart: node found through cmd on the plan's PATH, BRIDGE_PORT from the plan, the rest from the helper's own.
+    const s = swapSetup();
+    const seen = path.join(s.parent, 'env-seen.json');
+    fs.writeFileSync(path.join(s.parent, 'seen.js'), 'require("fs").writeFileSync(' + JSON.stringify(seen) + ', JSON.stringify({ port: process.env.BRIDGE_PORT, mine: process.env.HELPER_ONLY }))');
+    process.env.HELPER_ONLY = 'in memory';
+    try {
+      const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => /^(path|pathext|systemroot|comspec)$/i.test(k)));
+      const r = await swap.main(plan(s, { mode: 'restart', start: { exe: process.env.ComSpec || 'cmd.exe', args: ['/d', '/c', 'node', 'seen.js'], cwd: s.parent, env: { ...env, BRIDGE_PORT: '8499' } } }));
+      assert.ok(r.ok);
+      for (let i = 0; i < 50 && !fs.existsSync(seen); i++) await sleep(200);
+      assert.deepEqual(JSON.parse(fs.readFileSync(seen, 'utf8')), { port: '8499', mine: 'in memory' });
+    } finally { delete process.env.HELPER_ONLY; }
+  });
   await check('opened updates left beside the Bridge are tidied away, except one another running Bridge is waiting on', async () => {
     const sleeper = spawn(process.execPath, ['-e', 'setTimeout(()=>{},20000)'], { stdio: 'ignore' });
     const dead = spawn(process.execPath, ['-e', '0'], { stdio: 'ignore' });
