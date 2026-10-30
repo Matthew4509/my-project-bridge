@@ -86,12 +86,18 @@ function faultsText(r, a) {
   // Findings can carry text pulled from a live site (titles, evidence). Flatten every field to one line so the
   // copied list, pasted into an AI, cannot smuggle in lines that look like separate instructions.
   // The folder's name only: the full path names this PC's user (C:\Users\<name>\...), and this text is for pasting.
-  return 'Audit of ' + oneLine(r.name) + ' (folder ' + oneLine(r.folder) + '), ' + a.ranAt + '\n' + a.findings.map(f => '- [' + f.sev + '] ' + f.rule + ' ' + oneLine(f.title) + ' - ' + oneLine(f.where) + (f.also && f.also.length ? ' (also: ' + oneLine(f.also.join('; ')) + ')' : '') + (f.knownAs ? ' - already known as ' + oneLine(f.knownAs) : '') + (f.evidence ? ' - seen: ' + oneLine(f.evidence) : '') + ' - fix: ' + oneLine(f.fix)).join('\n');
+  return 'Audit of ' + oneLine(r.name) + ' (folder ' + oneLine(r.folder) + '), ' + a.ranAt + '\n' + a.findings.map(f => '- [' + f.sev + '] ' + f.rule + ' ' + oneLine(f.title) + ' - ' + oneLine(f.where) + (f.also && f.also.length ? ' (also: ' + oneLine(f.also.join('; ')) + ')' : '') + (f.knownAs ? ' - already known as ' + oneLine(f.knownAs) : '') + (f.evidence ? ' - seen: ' + oneLine(f.evidence) : '') + ' - fix: ' + oneLine(f.fix)).join('\n')
+    + (a.partly && a.notRead ? '\nNot read by this audit, so nothing is known about it: ' + oneLine(a.notRead.join('; ')) : '');
 }
 function showAudit(r, a, lead) {
   const c = a.counts || {};
-  const head = c.Critical || c.High ? 'Fix the Critical and High faults before this goes live.' : c.Medium ? 'No Critical or High faults. Medium ones are warnings.' : (c.Low || c.Info) ? 'Passed: only low-priority findings (below).' : 'Passed every rule that ran.';
-  const liveNote = a.url ? (a.liveReached ? 'Checked ' + a.url + ' as well as the code.' : a.url + ' did not answer, so it was not checked.') : 'The local copy was not running, so localhost was not checked.';
+  // partly: not everything was read. An old saved audit has no such field, and reads as it did.
+  const partly = a.partly === true, notRead = Array.isArray(a.notRead) ? a.notRead : [], didNotFinish = Array.isArray(a.cut) && a.cut.length > 0;
+  const head = c.Critical || c.High ? 'Fix the Critical and High faults before this goes live.'
+    : didNotFinish ? 'A part of the check did not finish, so nothing is known about what it did not read. This is not a pass: scan again.'
+    : partly ? (c.Medium ? 'No Critical or High faults in what was read, but not everything was read. Medium ones are warnings.' : 'No faults in what was read, but not everything was read, so this is not a full pass.')
+    : c.Medium ? 'No Critical or High faults. Medium ones are warnings.' : (c.Low || c.Info) ? 'Passed: only low-priority findings (below).' : 'Passed every rule that ran.';
+  const liveNote = a.url ? (a.liveReached ? 'Checked ' + a.url + ' as well as the code.' : a.liveReached === null ? 'The check of ' + a.url + ' did not finish in time, so it does not count.' : a.url + ' did not answer, so it was not checked.') : 'The local copy was not running, so localhost was not checked.';
   const cmp = a.compare;
   const cmpNote = cmp ? (cmp.stopped && !cmp.pages.length ? 'Live site ' + hostOf(cmp.liveUrl) + ': not compared. ' + cmp.stopped
     : 'Live site ' + hostOf(cmp.liveUrl) + ': ' + cmp.pages.length + ' page' + (cmp.pages.length === 1 ? '' : 's') + ' (' + cmp.pages.map(p => p.path).join(', ') + ') compared with ' + (cmp.localUrl ? 'the local copy' : 'the project\'s files (the local copy was not running)') + '; ' + cmp.requests + ' request' + (cmp.requests === 1 ? '' : 's') + ', ' + cmp.gapSeconds + ' s apart.' + (cmp.stopped ? ' Stopped early: ' + cmp.stopped : '')) : null;
@@ -117,7 +123,9 @@ function showAudit(r, a, lead) {
       ...lowShown.map(item), low.length > lowShown.length ? h('p', { class: 'muted' }, '…and ' + (low.length - lowShown.length) + ' more. Copy faults to see them all.') : null) : null,
     recRows.length ? h('details', { class: 'notes' }, h('summary', null, 'Rule record: how often people judged these rules wrong'),
       h('ul', null, ...recRows.map(([rule, rec]) => h('li', null, rule + ': ' + recText(rec) + (rec.check ? ' — marked "check this one" (wrong in ' + rec.files + '+ files, more often than it stands)' : ''))))) : null,
-    !major.length ? h('div', { class: 'check' }, h('span', { class: 'sev a-ok' }, '✓ Passed'), h('span', { class: 'what' }, 'Secrets, injection, auth, CSRF, uploads, exposed files, trackers' + (a.disclosure ? ', private details' : '') + (a.url || cmp ? ', headers' : '') + (cmp && !cmp.stopped ? ', live vs local' : ''))) : null,
+    partly ? h('div', { class: 'check' }, h('span', { class: 'sev a-warn' }, '◐ Partly'), h('span', { class: 'what' }, 'Not read, so nothing is known about it. Fix what you can and scan again, or check these by hand:',
+      ...notRead.map(n => h('span', { class: 'where' }, n)))) : null,
+    !major.length && !partly ? h('div', { class: 'check' }, h('span', { class: 'sev a-ok' }, '✓ Passed'), h('span', { class: 'what' }, 'Secrets, injection, auth, CSRF, uploads, exposed files, trackers' + (a.disclosure ? ', private details' : '') + (a.url || cmp ? ', headers' : '') + (cmp && !cmp.stopped ? ', live vs local' : ''))) : null,
     notes.length ? h('details', { class: 'notes' }, h('summary', null, notes.length + ' note' + (notes.length === 1 ? '' : 's') + ' (checked, not counted)'), h('ul', null, ...notes.slice(0, 30).map(n => h('li', null, n)))) : null,
     setAside.length ? h('details', { class: 'notes' }, h('summary', null, setAside.length + ' set aside: judged not a fault by a person (an edited line comes back)'),
       h('ul', null, ...setAside.map(f => h('li', null, f.rule + ' · ' + f.where + ' — ' + (f.judged ? f.judged.why + ' (' + f.judged.by + (f.judged.on ? ', ' + f.judged.on : '') + ')' : 'set aside in projects.json') + ' ',

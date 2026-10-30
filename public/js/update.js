@@ -62,7 +62,7 @@ function updInstallDialog(p) {
   // Cancel is the default here (Enter presses it); Install anyway has to be chosen.
   dialog('This zip is not signed by the Bridge\'s maker', [
     h('div', { class: 'upd-warn', role: 'alert' }, h('b', null, icon(0xE7BA), ' Warning: '), p.warning),
-    h('p', null, 'It holds My Project Bridge ' + p.version + '. Install it only if you trust where it came from, for example a zip you made yourself.'),
+    h('p', null, 'It holds My Project Bridge ' + p.version + '. ' + (p.code === 'newkey' ? 'Install it only if the fingerprint above matches the published one exactly.' : 'Install it only if you trust where it came from, for example a zip you made yourself.')),
     what, err],
   [h('button', { class: 'btn accent', type: 'button', onclick: () => { api('/api/update/cancel', {}).catch(() => {}); closeDialog(); } }, 'Cancel'),
     h('button', { class: 'btn danger', type: 'button', onclick: go(true) }, 'Install anyway')]);

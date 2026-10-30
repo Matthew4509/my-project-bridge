@@ -12,6 +12,10 @@ const { RULES_MORE } = require('../lib/rules-more');
 let failures = 0;
 const check = (name, fn) => { try { fn(); console.log('ok   ' + name); } catch (e) { failures++; console.log('FAIL ' + name + ': ' + e.message); } };
 
+// A signed token of the shape Supabase hands out, made up and put together here.
+const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
+const token = (role, iss = 'supabase') => [b64({ alg: 'HS256', typ: 'JWT' }), b64({ iss, ref: 'madeupproject', role }), 'madeUpSignatureNotARealOne_0123456789'].join('.');
+
 // [rule, file, fires, stays quiet]
 const PAIRS = [
   ['IMG-001', 'thumb.php', `<?php\n$src = imagecreatefrompng($path);\nimagepng(imagescale($src, 200), $out);\n`,
@@ -116,6 +120,18 @@ const PAIRS = [
   ['A11Y-002', 'gallery.html', `<section class="lightbox open"><img src="a.jpg" width="10" height="10" alt=""></section>\n`, `<dialog class="lightbox"><img src="a.jpg" width="10" height="10" alt=""></dialog>\n`],
   ['A11Y-004', 'contact.html', `<label class="f">Your name</label><input id="n" name="n">\n`, `<label>Your name <input name="n"></label>\n`],
   ['A11Y-003', 'team.html', `<p><img alt="Our team at the bench" src="/team.webp"></p>\n`, `<p><img alt="Our team at the bench" width="960" height="640" src="/team.webp"></p>\n`],
+  // Key-shaped text below is joined at run time: no line of this file looks like a real key.
+  ['KEY-001', 'views/Admin.jsx', `const db = createClient(url, serviceRoleKey);\nexport const Admin = () => <p>{db.name}</p>;\n`, `const db = createClient(url, anonKey);\nexport const Admin = () => <p>{db.name}</p>;\n`],
+  ['KEY-002', 'public/app.js', `const k = "${token('service_role')}";\n`, `const k = "${token('anon')}";\n`],
+  ['KEY-003', 'hooks/useStats.js', `const admin = require('firebase-admin');\nadmin.initializeApp({ credential: admin.credential.cert(key) });\n`, `import { initializeApp } from 'firebase/app';\ninitializeApp(webConfig);\n`],
+  ['KEY-004', 'pages/index.js', `const key = require('../keys/acme-firebase-adminsdk-x1y2.json');\nexport default function Home() { return key.project_id; }\n`, `import site from '../site.json';\nexport default function Home() { return site.name; }\n`],
+  ['KEY-005', 'static/key.json', `{"type": "service_account", "private_key": "${'made-up-not-a-key-'.repeat(4)}"}\n`, `{"type": "authorized_user", "note": "made up"}\n`],
+  ['ENV-001', '.env.production', `export VITE_ADMIN_PASSWORD="made-up-value"\n`, `VITE_ADMIN_NAME="Pat"\nADMIN_PASSWORD="made-up-value"\n`],
+  ['ENV-002', 'lib/ai.ts', `const { NEXT_PUBLIC_ANTHROPIC_API_KEY: key } = process.env;\n`, `const { NEXT_PUBLIC_SITE_URL: site } = process.env;\n`],
+  ['ENV-003', 'vite.config.mjs', `export default { define: {\n  "process.env.API_KEY": JSON.stringify(env.API_KEY),\n} };\n`, `export default { define: {\n  "process.env.BUILD_ID": JSON.stringify(id),\n} };\n`],
+  ['PAY-006', 'checkout.php', `<?php\n$i = \\Stripe\\PaymentIntent::create(['amount' => (int) $_POST['amount'], 'currency' => 'usd']);\n`, `<?php\n$price = price_of((int) $_POST['item']);\n$i = \\Stripe\\PaymentIntent::create(['amount' => $price, 'currency' => 'usd']);\n`],
+  ['LOG-001', 'auth.ts', `export const signIn = async (session) => {\n  console.info('signed in', session?.user?.id, req.headers.authorization);\n};\n`, `export const signIn = async (session) => {\n  console.info('signed in', session?.user?.id);\n};\n`],
+  ['CORS-003', 'server.ts', `import cors from 'cors';\napp.use(cors({ origin: '*', credentials: true }));\n`, `import cors from 'cors';\napp.use(cors({ origin: '*' }));\n`],
 ];
 
 // Must stay quiet: shapes the rules first flagged on real projects, wrongly (written again with made-up names).
@@ -149,6 +165,45 @@ const QUIET = [
   ['SEC-010', 'test_export.py', `f = open('/tmp/report.csv', 'w')\n`],
   // a tracker printed only inside a consent branch of the template
   ['PRIV-001', 'head.php', `<?php if ($consent_ok): ?>\n<script async src="https://www.googletagmanager.com/gtag/js?id=G-MADEUP1"></script>\n<?php endif; ?>\n`],
+  // honest shapes of the browser-key rules: the key on the server, or a value that is public by design
+  ['KEY-001', 'lib/server/admin.ts', `const admin = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);\n`],
+  ['KEY-001', 'app/api/job/route.ts', `const admin = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);\n`],
+  ['KEY-001', 'supabase/functions/job/index.ts', `const admin = createClient(url, serviceRoleKey);\n`],
+  ['KEY-001', 'lib/supabase/admin.ts', `export const admin = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);\n`],
+  ['KEY-001', 'components/Doc.tsx', `'use client';\nexport const Doc = () => <p>The service_role key is never used in this page.</p>;\n`],
+  ['KEY-001', 'pages/report.tsx', `const k = process.env.SUPABASE_SERVICE_ROLE_KEY;\nexport async function getServerSideProps() { return { props: { n: count(k) } }; }\n`],
+  ['KEY-002', '.env', `SUPABASE_SERVICE_ROLE_KEY=${token('service_role')}\n`],
+  ['KEY-002', 'src/local.js', `export const k = "${token('service_role', 'supabase-demo')}";\n`],
+  ['KEY-002', 'src/anon.js', `export const k = "${token('authenticated')}";\n`],
+  ['KEY-003', 'functions/index.js', `const admin = require('firebase-admin');\nadmin.initializeApp();\n`],
+  ['KEY-003', 'server/fb.ts', `import admin from 'firebase-admin';\nadmin.initializeApp({ credential: admin.credential.cert(key) });\n`],
+  ['KEY-004', 'scripts/backfill.js', `const key = require('./serviceAccountKey.json');\nrun(key);\n`],
+  ['KEY-005', 'config/key.json', `{"type": "service_account", "private_key": "${'made-up-not-a-key-'.repeat(4)}"}\n`],
+  ['ENV-001', '.env.local', `NEXT_PUBLIC_SITE_URL=https://shop.test\nNEXT_PUBLIC_SUPABASE_ANON_KEY=made-up-public-value\nVITE_API_URL=https://api.shop.test\nVITE_PRIVATE_BETA=true\nNEXT_PUBLIC_PASSWORD_MIN_LENGTH=8\nNEXT_PUBLIC_RESET_PASSWORD=true\nEXPO_PUBLIC_MAPBOX_TOKEN=made-up-public-value\nNEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=made-up-public-value\nNEXT_PUBLIC_RECAPTCHA_SITE_KEY=made-up-public-value\nNEXT_PUBLIC_SECRET_SANTA_URL=https://santa.test\n# NEXT_PUBLIC_STRIPE_SECRET_KEY=made-up-value\n`],
+  ['ENV-001', '.env.example', `NEXT_PUBLIC_STRIPE_SECRET_KEY=your-key-here\n`],
+  ['ENV-001', 'a/.env', `VITE_OPENAI_API_KEY=\nVITE_GEMINI_API_KEY=your_key_here\nNEXT_PUBLIC_DB_PASSWORD=xxxxxx\n`],
+  ['ENV-002', 'src/config.js', `export const api = import.meta.env.VITE_API_URL;\nexport const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;\nexport const pk = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY;\n`],
+  ['ENV-002', 'app/api/ai/route.ts', `const key = process.env.NEXT_PUBLIC_OPENAI_API_KEY;\n`],
+  ['ENV-003', 'vite.config.ts', `export default { server: { proxy: {} }, envPrefix: 'VITE_' };\nconst x = { 'process.env.API_KEY': 'not in a define' };\n`],
+  // honest shapes of the price rule: a price looked up on the server, a donation the visitor chooses, the name only
+  ['PAY-006', 'api/buy.js', `const { itemId } = req.body;\nconst item = await db.item.findUnique({ where: { id: itemId } });\nawait stripe.paymentIntents.create({ amount: item.price, currency: 'usd' });\n`],
+  ['PAY-006', 'api/buy2.js', `const { amount: wanted } = req.body;\nconst order = await loadOrder(req.body.id);\nif (wanted !== order.total) throw new Error('The total changed: please check your basket.');\nawait stripe.paymentIntents.create({ amount: order.total, currency: 'usd' });\n`],
+  ['PAY-006', 'api/donate.js', `await stripe.paymentIntents.create({ amount: req.body.amount, currency: 'usd' });\n`],
+  ['PAY-006', 'api/quote.js', `const totals = { amount: req.body.amount };\nsave(totals);\n`],
+  ['PAY-006', 'api/receipt.js', `const paypal = load();\nconst { amount } = await lookup(req.query.id);\nreturn { amount, shown: true };\n`],
+  // honest shapes of the log rule
+  ['LOG-001', 'x/a.js', `console.log('token refreshed');\nconsole.log("password changed");\nconsole.log(tokens.length, tokenCount, token.length, !!token);\nconsole.log('has token', token ? 'yes' : 'no');\nconsole.log(session?.user?.id);\nconsole.log(mask(accessToken));\nconsole.log({ token: 'hidden' });\n`],
+  ['LOG-001', 'x/lexer.js', `const lexer = make();\nconsole.log(token);\n`],
+  ['LOG-001', 'x/workout.js', `console.log(session);\n`],
+  ['LOG-001', 'x/dev.js', `if (process.env.NODE_ENV !== 'production') console.log(token);\nif (process.env.NODE_ENV !== 'production') {\n  console.log(password);\n}\n`],
+  ['LOG-001', 'scripts/rotate.js', `console.log(accessToken);\n`],
+  // honest shapes of the CORS rule
+  ['CORS-003', 'y/app.js', `const cors = require('cors');\napp.use(cors({ origin: 'https://app.test', credentials: true }));\n`],
+  ['CORS-003', 'y/public.js', `const cors = require('cors');\napp.use(cors({ origin: '*' }));\n`],
+  ['CORS-003', 'y/list.js', `const cors = require('cors');\napp.use(cors({ origin: ['https://a.test', 'https://b.test'], credentials: true }));\n`],
+  ['CORS-003', 'vite.config.js', `// cors dev server\nexport default { server: { cors: { origin: true, credentials: true } } };\n`],
+  ['CORS-003', 'y/dev.js', `const cors = require('cors');\nconst dev = process.env.NODE_ENV !== 'production';\nif (dev) app.use(cors({ origin: true, credentials: true }));\n`],
+  ['CORS-003', 'y/flask.py', `from flask_cors import CORS\nCORS(app, origins=["https://app.test"], supports_credentials=True)\n`],
 ];
 
 async function main() {

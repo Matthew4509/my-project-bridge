@@ -41,7 +41,10 @@ function skillDialog(pasted = '', where = '') {
 }
 
 function skillResult(r, pasted, where) {
-  const cls = r.verdict === 'do-not-install' ? 'a-bad' : r.verdict === 'read-first' ? 'a-warn' : 'a-ok';
+  // Partly checked is amber, and has its own mark and its own list of what was not read: it is not a pass.
+  const partly = r.verdict === 'partly-checked';
+  const cls = r.verdict === 'do-not-install' ? 'a-bad' : r.verdict === 'read-first' || partly ? 'a-warn' : 'a-ok';
+  const unread = r.notRead || [];
   const item = f => h('div', { class: 'check' }, h('span', { class: 'sev ' + (SEV[f.sev] || SEV.Medium).cls }, (SEV[f.sev] || SEV.Medium).mark),
     h('span', { class: 'what' }, f.title, h('span', { class: 'where' }, f.where + ' · ' + f.rule + ' · ' + f.fix)));
   const d = r.does || {};
@@ -52,11 +55,13 @@ function skillResult(r, pasted, where) {
     d.keys && d.keys.length ? ['Keys it reads', d.keys] : null,
   ].filter(Boolean);
   dialog('Check a skill: ' + r.headline, [
-    h('p', null, h('b', { class: cls }, r.headline), ' · ' + r.counts.Critical + ' critical, ' + r.counts.High + ' high, ' + r.counts.Medium + ' to read first · ' + r.rules + ' checks over ' + r.filesRead.length + ' file' + (r.filesRead.length === 1 ? '' : 's') + '.'),
+    h('p', null, h('b', { class: cls }, (partly ? '◐ ' : '') + r.headline), ' · ' + r.counts.Critical + ' critical, ' + r.counts.High + ' high, ' + r.counts.Medium + ' to read first · ' + r.rules + ' checks over ' + r.filesRead.length + ' file' + (r.filesRead.length === 1 ? '' : 's') + '.'),
     ...r.findings.slice(0, 60).map(item),
+    unread.length ? h('details', { class: 'notes', open: true }, h('summary', { class: 'a-warn' }, '◐ Not read, so not covered by this check'),
+      ...unread.slice(0, 20).map(n => h('div', { class: 'check' }, h('span', { class: 'what' }, n)))) : null,
     doesRows.length ? h('details', { class: 'notes', open: true }, h('summary', null, 'What it does'),
       ...doesRows.map(([k, v]) => h('div', { class: 'check' }, h('span', { class: 'sev' }, k), h('span', { class: 'what' }, v.slice(0, 20).join(', ') + (v.length > 20 ? '…' : ''))))) : null,
-    ...(r.notes || []).map(n => h('p', { class: 'muted' }, n)),
+    ...(r.notes || []).filter(n => !unread.includes(n)).map(n => h('p', { class: 'muted' }, n)),
     h('p', { class: 'muted' }, 'This check knows the common shapes of these attacks, not every one. A skill it passes can still do harm: install skills from makers you trust, and read what a skill runs.')],
     [h('button', { class: 'btn', type: 'button', onclick: () => skillDialog(pasted, where) }, 'Check another'), cancelBtn('Close')], 'wide');
 }

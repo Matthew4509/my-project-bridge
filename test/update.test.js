@@ -121,6 +121,20 @@ async function main() {
     assert.equal(release.signedText('0.1.99', SHA.toUpperCase()), 'My Project Bridge release 0.1.99\nsha256 ' + SHA + '\n');
     assert.equal(release.sigWhy(sig, '0.1.99', SHA, KEY.pub), '');
   });
+  await check('a key this Bridge does not know: its fingerprint is the sha256 of the key text, short and grouped', () => {
+    const want = k => crypto.createHash('sha256').update(k).digest('hex').slice(0, 24).match(/.{4}/g).join(' ');
+    assert.equal(release.fingerprint(OTHER.pub), want(OTHER.pub));
+    assert.match(release.fingerprint(OTHER.pub), /^[0-9a-f]{4}( [0-9a-f]{4}){5}$/);
+    const c = release.zipCheck(release.signRelease(OTHER.pem, '0.1.99', SHA), '0.1.99', SHA, KEY.pub);
+    assert.equal(c.code, 'newkey'); assert.equal(c.fingerprint, want(OTHER.pub));
+    assert.ok(!/may have changed/i.test(c.why), c.why);
+    const t = release.tagCheck(release.tagSigOf('\n' + release.tagMessage(release.signTag(OTHER.pem, '0.1.99', '1'.repeat(40), '2'.repeat(40)))), '0.1.99', '1'.repeat(40), '2'.repeat(40), KEY.pub);
+    assert.equal(t.code, 'newkey'); assert.equal(t.fingerprint, want(OTHER.pub));
+  });
+  await check('the fingerprint published in the README and the user guide is the release key this Bridge carries', () => {
+    const fp = release.fingerprint(release.RELEASE_KEY);
+    for (const f of ['README.md', 'USER-GUIDE.md']) assert.ok(fs.readFileSync(path.join(HERE, f), 'utf8').includes(fp), f + ' names ' + fp);
+  });
   await check('a git release: the signed commit and tree, read back out of the tag message', () => {
     const c = '1'.repeat(40), t = '2'.repeat(40);
     const s = release.signTag(KEY.pem, '0.1.99', c, t);
@@ -204,6 +218,19 @@ async function main() {
     fs.writeFileSync(z + '.sig', JSON.stringify(release.signRelease(OTHER.pem, '0.1.99', sha256(z))));
     r = await update.fromFile(z, W());
     assert.equal(r.pending.code, 'newkey'); assert.match(r.pending.warning, /key this Bridge does not know/);
+    // As firm as no signature at all: the fingerprint to compare, and none of the old "this is expected" comfort.
+    const noSigWarning = 'There is no signature beside it (my-project-bridge-<version>.zip.sig). It may not be from the Bridge\'s maker.';
+    assert.equal(update.WARN.none + ' It may not be from the Bridge\'s maker.', noSigWarning);
+    assert.ok(r.pending.warning.includes(release.fingerprint(OTHER.pub)), r.pending.warning);
+    assert.match(r.pending.warning, /README on the Bridge's GitHub page/);
+    assert.match(r.pending.warning, /do not install it/i);
+    assert.match(r.pending.warning, /It may not be from the Bridge's maker\.$/);
+    assert.ok(!/expected|changed keys|may have changed/i.test(r.pending.warning), r.pending.warning);
+    assert.equal(r.pending.signed, false);
+    // Install anyway is still the only way in: without it, refused, with the fingerprint named again.
+    const refused = await update.installZip(update.pending, false, W(), () => assert.fail('must not exit'));
+    assert.match(refused.error, /not signed by the Bridge's maker/);
+    assert.ok(refused.error.includes(release.fingerprint(OTHER.pub)), refused.error);
     fs.writeFileSync(z + '.sig', JSON.stringify(release.signRelease(KEY.pem, '0.1.99', SHA)));
     r = await update.fromFile(z, W());
     assert.equal(r.pending.code, 'changed'); assert.match(r.pending.warning, /changed after it was signed/);
@@ -280,7 +307,11 @@ async function main() {
     assert.match(r.error, /downloaded but not opened: the zip is not the one that was signed.*nothing was installed/);
     offer(Z99, JSON.stringify(release.signRelease(OTHER.pem, '0.1.99', sha256(Z99))));
     r = await update.download('0.1.99', W({ api: API }));
-    assert.match(r.error, /signed with a key this Bridge does not know.*by hand once.*Install anyway/);
+    // A download stays refused: nothing waits for Install, and the fingerprint is there to compare.
+    assert.match(r.error, /signed with a key this Bridge does not know, so it was not installed/);
+    assert.ok(r.error.includes(release.fingerprint(OTHER.pub)), r.error);
+    assert.match(r.error, /do not install it/i);
+    assert.ok(!r.pending && !update.pending);
     offer(Z99);
     assert.match((await update.download('0.1.97', W({ api: API }))).error, /GitHub now has My Project Bridge 0\.1\.99/);
     assert.ok(!update.pending);
@@ -525,7 +556,10 @@ async function main() {
       assert.match((await updateGit.get('0.1.99', GW())).error, /were changed here \(README\.md\)/);
       g(clone, 'checkout', '--', 'README.md');
       // Another key, or a key this Bridge does not carry: refused.
-      assert.match((await updateGit.get('0.1.99', GW({ key: OTHER.pub }))).error, /signed with a key this Bridge does not know/);
+      const otherKey = await updateGit.get('0.1.99', GW({ key: OTHER.pub }));
+      assert.match(otherKey.error, /signed with a key this Bridge does not know/);
+      assert.ok(otherKey.error.includes(release.fingerprint(KEY.pub)), otherKey.error);
+      assert.match(otherKey.error, /do not (install|take) it/i);
       const r = await updateGit.get('0.1.99', GW());
       assert.ok(r.ok && r.pending.route === 'git' && r.pending.signed, r.error);
       const p = update.pending;

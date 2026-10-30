@@ -70,5 +70,64 @@ check('a window takes focus on a field it can type in, else its main button, nev
     'Welcome\'s copy block (a hidden, read-only textarea) is skipped, so Done takes the focus, not the first tick box');
 });
 
+// auditLabel and showAudit, taken from their files and run here with made-up audits.
+const CORE = read('js/core.js'), ACTIONS = read('js/actions.js');
+const labelSrc = CORE.match(/function auditLabel\(a\) \{[\s\S]*?\n\}/);
+const label = a => new Function('fmtWhen', labelSrc[0] + '\nreturn auditLabel;')(() => 'today')(a);
+check('the audit label: amber and a shape of its own when not everything was read', () => {
+  assert.deepStrictEqual(label({ counts: {}, partly: true }), { cls: 'a-warn', text: '◐ Passed, partly checked', when: 'today' });
+  assert.deepStrictEqual(label({ counts: { Low: 3 }, partly: true }), { cls: 'a-warn', text: '◐ Passed, partly checked', when: 'today' });
+  assert.deepStrictEqual(label({ counts: { Medium: 2 }, partly: true }), { cls: 'a-warn', text: '■ 2 Medium, partly checked', when: 'today' });
+  assert.strictEqual(label({ counts: { High: 1 }, partly: true }).text, '▲ 1 High');
+  assert.strictEqual(label({ counts: { Critical: 1 }, partly: true }).cls, 'a-bad');
+});
+check('the audit label: a part that did not finish never says Passed', () => {
+  assert.deepStrictEqual(label({ counts: {}, partly: true, cut: ['The code check crashed'] }), { cls: 'a-warn', text: '◐ Check did not finish', when: 'today' });
+  assert.deepStrictEqual(label({ counts: { Medium: 2 }, partly: true, cut: ['The code check crashed'] }), { cls: 'a-warn', text: '■ 2 Medium, check did not finish', when: 'today' });
+  assert.strictEqual(label({ counts: { High: 1 }, partly: true, cut: ['The code check crashed'] }).text, '▲ 1 High');
+});
+check('the audit label: an old saved audit with no partly field shows as it did', () => {
+  assert.deepStrictEqual(label({ counts: {} }), { cls: 'a-ok', text: '✓ Passed', when: 'today' });
+  assert.deepStrictEqual(label({ counts: { Medium: 2 } }), { cls: 'a-warn', text: '■ 2 Medium', when: 'today' });
+  assert.deepStrictEqual(label({ counts: {}, partly: false }), { cls: 'a-ok', text: '✓ Passed', when: 'today' });
+});
+
+const showSrc = ACTIONS.match(/const SEV = \{[\s\S]*?\nfunction showAudit\(r, a, lead\) \{[\s\S]*?\n\}\n/);
+const fakeH = (tag, attrs, ...kids) => ({ tag, attrs: attrs || {}, kids: kids.flat() });
+const allOf = n => n == null || n === false ? [] : Array.isArray(n) ? n.flatMap(allOf) : typeof n === 'object' ? [n, ...allOf(n.kids)] : [];
+const textOf = n => n == null || n === false ? '' : Array.isArray(n) ? n.map(textOf).join(' ') : typeof n === 'object' ? textOf(n.kids) : String(n);
+function audit(a) {
+  let shown = null;
+  new Function('h', 'dialog', 'hostOf', 'oneLine', 'closeDialog', 'info', 'navigator', 'judgeDialog', 'reviewDialog', 'importDialog', 'unjudge', showSrc[0] + '\nreturn { showAudit, faultsText };')(
+    fakeH, (title, kids) => { shown = kids; }, x => x, x => String(x), () => {}, () => {}, {}, () => {}, () => {}, () => {}, () => {}).showAudit({ name: 'Made up', folder: 'made-up' }, { rules: 10, filesScanned: 3, seconds: 1, findings: [], counts: {}, ranAt: '2000-01-01', ...a });
+  return { text: textOf(shown), nodes: allOf(shown) };
+}
+const oklike = nodes => nodes.filter(n => String(n.attrs.class || '').split(' ').includes('a-ok'));
+const NOT = ['Code files over 800 KB: 1', 'pdf files (the pass cannot read inside them): 2'];
+check('the audit window: a partly checked pass says what was not read, amber, with no green Passed', () => {
+  const { text, nodes } = audit({ partly: true, notRead: NOT, cut: [] });
+  for (const n of NOT) assert(text.includes(n), text);
+  assert(/not everything was read/i.test(text), text);
+  assert(!/✓ Passed/.test(text) && !/Passed every rule/.test(text) && !oklike(nodes).length, text);
+  assert(nodes.some(n => String(n.attrs.class).includes('a-warn') && /◐/.test(textOf(n))), 'an amber row with its own shape');
+});
+check('the audit window: with faults and gaps it still lists the gaps', () => {
+  const { text } = audit({ partly: true, notRead: NOT, cut: [], counts: { High: 1 }, findings: [{ rule: 'X-1', sev: 'High', title: 't', area: 'a', where: 'w', fix: 'f' }] });
+  assert(/Fix the Critical and High/.test(text) && text.includes(NOT[0]), text);
+});
+check('the audit window: an old saved audit, and one read whole, show the green Passed as before', () => {
+  for (const a of [{}, { partly: false, notRead: [], cut: [] }]) {
+    const { text, nodes } = audit(a);
+    assert(/✓ Passed/.test(text) && /Passed every rule/.test(text) && oklike(nodes).length === 1 && !/◐/.test(text), text);
+  }
+});
+check('the audit summary the list reads carries partly', () => {
+  assert(/function auditSummary\(a\) \{[^\n]*partly: a\.partly === true/.test(fs.readFileSync(path.join(__dirname, '..', 'lib', 'audit-store.js'), 'utf8')));
+});
+check('the copied fault list says what was not read', () => {
+  const src = showSrc[0];
+  assert(/function faultsText[\s\S]*?a\.notRead/.test(src), 'faultsText names notRead');
+});
+
 console.log(failures ? failures + ' FAILED' : 'all passed');
 process.exit(failures ? 1 : 0);

@@ -124,6 +124,30 @@ echo file_get_contents('https://api.weather-paid.example/v1?q=' . urlencode($tow
   ['CACHE-001', { '.htaccess': 'ExpiresActive On\nExpiresByType text/css "access plus 1 year"\n', 'index.php': '<?php ?><link rel="stylesheet" href="/css/site.css">\n' },
     { '.htaccess': 'ExpiresActive On\nExpiresByType text/css "access plus 1 year"\n', 'index.php': '<?php ?><link rel="stylesheet" href="/css/site.css?v=2.1.0">\n' }],
   ['TEST-001', { 'tests/smoke.py': "print('skip: no browser on this machine')\n" }, { 'tests/smoke.py': "from app import total\nassert total([2, 3]) == 5\n" }],
+  ['API-001', { 'src/app/api/profiles/[id]/route.js': "import { db } from '@/db';\nexport async function PATCH(req, { params }) {\n  await db.profile.update({ where: { id: params.id }, data: await req.json() });\n  return Response.json({ ok: true });\n}\n" },
+    { 'src/app/api/profiles/[id]/route.js': "import { db } from '@/db';\nimport { currentUser } from '@clerk/nextjs/server';\nexport async function PATCH(req, { params }) {\n  const me = await currentUser();\n  if (!me) return new Response('Please sign in first.', { status: 401 });\n  await db.profile.update({ where: { id: me.id }, data: await req.json() });\n  return Response.json({ ok: true });\n}\n" }],
+  // a helper in the project, whose name says nothing, does the check
+  ['API-001', { 'lib/me.js': "export function whoIsIt() { return null; }\n", 'pages/api/invoices/index.js': "import { whoIsIt } from '../../../lib/me';\nexport default async function handler(req, res) {\n  whoIsIt();\n  res.json(await Invoice.find({}));\n}\n" },
+    { 'lib/me.js': "export function whoIsIt(req, res) { if (!req.cookies.sid) res.status(401).end(); }\n", 'pages/api/invoices/index.js': "import { whoIsIt } from '../../../lib/me';\nexport default async function handler(req, res) {\n  whoIsIt(req, res);\n  res.json(await Invoice.find({}));\n}\n" }],
+  // a router in its own file: the check is where it is mounted
+  ['API-001', { 'routes/accounts.js': "const router = require('express').Router();\nrouter.put('/accounts/:id', async (req, res) => {\n  await Account.findByIdAndUpdate(req.params.id, req.body);\n  res.json({ ok: true });\n});\nmodule.exports = router;\n", 'server.js': "const express = require('express');\nconst app = express();\napp.use('/auth', require('./routes/auth-pages'));\napp.use('/api', require('./routes/accounts'));\n" },
+    { 'routes/accounts.js': "const router = require('express').Router();\nrouter.put('/accounts/:id', async (req, res) => {\n  await Account.findByIdAndUpdate(req.params.id, req.body);\n  res.json({ ok: true });\n});\nmodule.exports = router;\n", 'server.js': "const express = require('express');\nconst app = express();\napp.use('/api', verifyToken, require('./routes/accounts'));\n" }],
+  // Clerk's middleware with no rule in it signs people in but protects nothing
+  ['API-001', { 'app/api/orders/route.ts': "export async function POST() {\n  await prisma.order.deleteMany();\n  return Response.json({});\n}\n", 'middleware.ts': "import { clerkMiddleware } from '@clerk/nextjs/server';\nexport default clerkMiddleware();\nexport const config = { matcher: ['/((?!_next).*)', '/(api|trpc)(.*)'] };\n" },
+    { 'app/api/orders/route.ts': "export async function POST() {\n  await prisma.order.deleteMany();\n  return Response.json({});\n}\n", 'middleware.ts': "import { clerkMiddleware } from '@clerk/nextjs/server';\nexport default clerkMiddleware(async (auth) => { await auth.protect(); });\nexport const config = { matcher: ['/((?!_next).*)', '/(api|trpc)(.*)'] };\n" }],
+  // a table named in a query builder (Drizzle) is read as well as one in quotes
+  ['API-001', { 'app/api/people/route.ts': "export async function GET() { return Response.json(await db.select().from(users)); }\n" },
+    { 'app/api/people/route.ts': "export async function GET() { const s = await auth(); if (!s) return new Response(null, { status: 401 }); return Response.json(await db.select().from(users)); }\n" }],
+  ['API-002', { 'pages/api/gadgets.ts': "export default async function handler(req, res) {\n  res.json(await db.query('SELECT * FROM gadgets'));\n}\n" },
+    { 'pages/api/gadgets.ts': "import { withIronSessionApiRoute } from 'iron-session/next';\nexport default withIronSessionApiRoute(async function route(req, res) {\n  if (!req.session.user) return res.status(401).end();\n  res.json(await db.query('SELECT * FROM gadgets WHERE owner = $1', [req.session.user.id]));\n}, options);\n" }],
+  ['DEBUG-002', { 'app/admin/reset/route.js': "export async function POST() {\n  await db.user.deleteMany();\n  return Response.json({});\n}\n" },
+    { 'app/admin/reset/route.js': "export async function POST(req) {\n  if (req.headers.get('x-reset-key') !== process.env.RESET_KEY) return new Response('Not allowed.', { status: 403 });\n  await db.user.deleteMany();\n  return Response.json({});\n}\n" }],
+  ['DEBUG-002', { 'api.js': "const express = require('express');\nconst app = express();\napp.get('/api/test-mail', async (req, res) => {\n  await sendMail(req.query.to, 'hello');\n  res.end();\n});\n" },
+    { 'api.js': "const express = require('express');\nconst app = express();\nif (process.env.NODE_ENV !== 'production') {\n  app.get('/api/test-mail', async (req, res) => {\n    await sendMail(req.query.to, 'hello');\n    res.end();\n  });\n}\n" }],
+  ['PAY-007', { 'webhooks/paddle.php': "<?php\n$event = json_decode(file_get_contents('php://input'), true);\nif ($event['event_type'] === 'transaction.completed') grant($event);\n" },
+    { 'webhooks/paddle.php': "<?php\n$raw = file_get_contents('php://input');\nif (!hash_equals(hash_hmac('sha256', $raw, PADDLE_KEY), $_SERVER['HTTP_PADDLE_SIGNATURE'] ?? '')) { http_response_code(400); exit; }\n$event = json_decode($raw, true);\ngrant($event);\n" }],
+  ['RLS-001', { 'package.json': '{"dependencies":{"@supabase/supabase-js":"2.0.0"}}\n', 'src/db.js': "import { createClient } from '@supabase/supabase-js';\nexport const db = createClient(u, k);\n", 'schema.sql': 'DROP TABLE IF EXISTS profiles;\nCREATE TABLE IF NOT EXISTS "public"."profiles" (id uuid);\n' },
+    { 'package.json': '{"dependencies":{"@supabase/supabase-js":"2.0.0"}}\n', 'src/db.js': "import { createClient } from '@supabase/supabase-js';\nexport const db = createClient(u, k);\n", 'schema.sql': 'DROP TABLE IF EXISTS profiles;\nCREATE TABLE IF NOT EXISTS "public"."profiles" (id uuid);\nALTER TABLE ONLY "public"."profiles" ENABLE ROW LEVEL SECURITY;\n' }],
 ];
 
 // Shapes that were flagged on real projects and are not faults (made-up names). [rule, files]
@@ -188,6 +212,50 @@ const QUIET = [
   // PAY-005: a handler-named call followed straight by exit is a refusal path, not the answer
   ['PAY-005', { 'lib/h.php': "<?php\nfunction handle_rejected($e) { if (!$e) return false; return log_it($e); }\n",
     'webhook.php': "<?php\nif (!sig_ok()) {\n  handle_rejected($raw);\n  exit;\n}\nif (!apply_event($e)) { http_response_code(500); exit; }\nhttp_response_code(200);\n" }],
+  // API-002: a fixed list in the code is not the database; a key compared in a header is a check
+  ['API-002', { 'app/api/widgets/route.ts': "const WIDGETS = [{ id: 1 }];\nconst Parts = [{ id: 2 }];\nexport async function GET() { return Response.json([WIDGETS.find(w => w.id === 1), Parts.find(w => w.id === 2)]); }\n" }],
+  ['API-001', { 'app/api/orders/route.ts': "export async function POST(req) { if (req.headers.get('x-admin-key') !== ADMIN_KEY) return new Response(null); await prisma.order.deleteMany(); return Response.json({}); }\n" }],
+  // API and DEBUG: a test that is the app's own subject, deep in the address
+  ['DEBUG-002', { 'app/api/quiz/test/route.ts': "export async function GET() { return Response.json(await prisma.quiz.findMany()); }\n" }],
+  // PAY-007: a React hooks folder; a service object that handles the webhook elsewhere
+  ['PAY-007', { 'src/hooks/useStripe.ts': "export const load = async (request) => { const r = await request.json(); return stripe(r); };\n" }],
+  ['PAY-007', { 'app/api/stripe/webhook/route.ts': "import { billing } from '@/services/billing';\nexport async function POST(req) { const raw = await req.text(); await billing.handleWebhook(raw); return Response.json({}); }\n" }],
+  // API-001/002: honest routes
+  ['API-001', { 'app/api/health/route.ts': "export async function GET() { await prisma.user.count(); return Response.json({ ok: true }); }\n" }],
+  ['API-002', { 'app/api/blog/route.ts': "export async function GET() { return Response.json(await prisma.post.findMany({ where: { published: true } })); }\n" }],
+  ['API-002', { 'app/api/latest/route.ts': "export async function GET() { return Response.json(await prisma.post.findMany()); }\n" }],
+  ['API-002', { 'pages/api/stuff.ts': "export default async function handler(req, res) { res.json(await db.query('SELECT * FROM stuff WHERE is_public = true')); }\n" }],
+  ['API-001', { 'app/api/auth/register/route.ts': "export async function POST(req) { await prisma.user.create({ data: await req.json() }); return Response.json({}); }\n" }],
+  ['API-001', { 'app/api/bookings/route.ts': "export async function POST(req) { await prisma.booking.create({ data: await req.json() }); return Response.json({}); }\n" }],
+  ['API-001', { 'app/api/stripe/webhook/route.ts': "export async function POST(req) { const e = stripe.webhooks.constructEvent(await req.text(), s, k); await prisma.order.update({ where: { id: e.id }, data: {} }); return Response.json({}); }\n" }],
+  // a session check made in the file, through a wrapper, through a helper it imports, through middleware
+  ['API-001', { 'app/api/a/route.ts': "export async function POST() { const s = await getServerSession(); if (!s) return new Response(null, { status: 401 }); await prisma.order.create({ data: {} }); return Response.json({}); }\n" }],
+  ['API-001', { 'app/api/b/route.ts': "export const POST = withAuth(async () => { await prisma.order.create({ data: {} }); return Response.json({}); });\n" }],
+  ['API-001', { 'app/api/c/route.ts': "import { requireUser } from '@/lib/guards';\nexport async function POST() { await requireUser(); await prisma.order.create({ data: {} }); return Response.json({}); }\n" }],
+  ['API-001', { 'app/api/d/route.ts': "export async function POST() { await prisma.order.create({ data: {} }); return Response.json({}); }\n", 'src/middleware.ts': "export default withAuth({});\nexport const config = { matcher: ['/api/:path*'] };\n", 'src/app/api/d/route.ts': "export async function POST() { await prisma.order.create({ data: {} }); return Response.json({}); }\n" }],
+  ['API-001', { 'apps/web/app/api/e/route.ts': "export async function POST() { await prisma.order.create({ data: {} }); return Response.json({}); }\n", 'apps/web/middleware.ts': "import { auth } from './auth';\nexport default auth;\n" }],
+  // a Supabase client that runs as the signed-in person is limited by row-level security
+  ['API-001', { 'app/api/f/route.ts': "import { createClient } from '@/lib/supabase/server';\nexport async function GET() { const s = await createClient(); return Response.json(await s.from('notes').select('*')); }\n", 'lib/supabase/server.ts': "export const createClient = () => createServerClient(url, anon, { cookies: {} });\n" }],
+  // Express: the check on the route, across the app, in the body; a mock server; a handler defined elsewhere
+  ['API-001', { 'srv.js': "const express = require('express');\nconst app = express();\napp.use(requireLogin);\napp.get('/customers', async (req, res) => res.json(await Customer.find({})));\n" }],
+  ['API-001', { 'srv.js': "const express = require('express');\nconst app = express();\napp.get('/customers', async (req, res) => {\n  if (!req.user) return res.sendStatus(401);\n  res.json(await Customer.find({}));\n});\n" }],
+  ['API-001', { 'mocks/srv.js': "const express = require('express');\nconst app = express();\napp.get('/customers', async (req, res) => res.json(await Customer.find({})));\n" }],
+  ['API-001', { 'srv.js': "const express = require('express');\nconst app = express();\napp.get('/customers', list.customers);\n" }],
+  // the same words in an app that is not a server at all
+  ['API-001', { 'src/orders.js': "const app = makeApp();\napp.get('/orders', () => db.query('SELECT * FROM orders'));\n" }],
+  // DEBUG-002: a test route with a fixed answer; a password reset page; a real test folder
+  ['DEBUG-002', { 'app/api/test/route.ts': "export async function GET() { return Response.json({ hello: 'world' }); }\n" }],
+  ['DEBUG-002', { 'srv.js': "const express = require('express');\nconst app = express();\napp.post('/reset', async (req, res) => {\n  await User.updateOne({ token: req.body.token }, { password: hash(req.body.password) });\n  res.end();\n});\n" }],
+  ['DEBUG-002', { 'tests/fixtures/app/api/seed/route.ts': "export async function GET() { await prisma.user.deleteMany(); return Response.json({}); }\n" }],
+  // PAY-007: another service's webhook; the event handler itself, after the route checked it; a helper in a package
+  ['PAY-007', { 'app/api/github/webhook/route.ts': "export async function POST(req) { const e = await req.json(); await build(e); return Response.json({}); }\n" }],
+  ['PAY-007', { 'lib/webhooks/stripe-events.ts': "export async function onEvent(event) { if (event.type === 'checkout.session.completed') await grant(event); }\n" }],
+  ['PAY-007', { 'app/api/webhooks/paddle/route.ts': "import { paddle } from '@/lib/paddle';\nexport async function POST(req) { const e = await paddle.webhooks.unmarshal(await req.text(), key, req.headers.get('paddle-signature')); await grant(e); return Response.json({}); }\n" }],
+  // RLS-001: enabled in a later migration; a table outside public; a project with no Supabase; a loop that enables it
+  ['RLS-001', { 'supabase/migrations/1.sql': 'create table notes (id int);\n', 'supabase/migrations/2.sql': 'alter table if exists public.notes enable row level security;\n' }],
+  ['RLS-001', { 'supabase/migrations/1.sql': 'create table private.audit (id int);\n/* create table public.old (id int); */\n-- create table public.older (id int);\n' }],
+  ['RLS-001', { 'db/schema.sql': 'create table notes (id int);\n', 'src/db.js': "import pg from 'pg';\nexport const db = new pg.Pool();\n" }],
+  ['RLS-001', { 'supabase/migrations/1.sql': "create table a (id int);\ncreate table b (id int);\ndo $$ declare r record; begin for r in select tablename from pg_tables where schemaname = 'public' loop\n  execute format('alter table %I enable row level security', r.tablename);\nend loop; end $$;\n" }],
 ];
 
 async function main() {

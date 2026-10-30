@@ -78,7 +78,11 @@ function auditLabel(a) {
   if (!a) return null;
   const c = a.counts || {}, when = fmtWhen(Date.parse(a.ranAt));
   if (c.Critical || c.High) return { cls: 'a-bad', text: '▲ ' + [c.Critical && c.Critical + ' Critical', c.High && c.High + ' High'].filter(Boolean).join(', '), when };
-  if (c.Medium) return { cls: 'a-warn', text: '■ ' + c.Medium + ' Medium', when };
+  // partly: not everything was read (lib/audit.js). A saved audit from before that has no such field, and shows as it did.
+  if (c.Medium) return { cls: 'a-warn', text: '■ ' + c.Medium + ' Medium' + (Array.isArray(a.cut) && a.cut.length ? ', check did not finish' : a.partly ? ', partly checked' : ''), when };
+  // A part that stopped or crashed knows nothing about what it did not read, so "Passed" would be a false claim.
+  if (Array.isArray(a.cut) && a.cut.length) return { cls: 'a-warn', text: '◐ Check did not finish', when };
+  if (a.partly) return { cls: 'a-warn', text: '◐ Passed, partly checked', when };
   return { cls: 'a-ok', text: '✓ Passed', when };
 }
 

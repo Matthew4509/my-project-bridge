@@ -41,6 +41,9 @@ async function gateCheck(r) {
   dialog('Checking ' + r.name + '…', [h('p', { class: 'muted' }, 'The same check a push gets: the project\'s files, its AI agent files and what publishing would give away (no live site).')], []);
   try {
     const d = await api('/api/gate/check', { id: r.id });
-    showAudit(r, d.audit, d.ready ? 'Ready to publish: no Critical or High finding.' : 'Not ready to publish: fix the Critical and High findings first. With the publish guard on, a push is stopped until then.');
+    const a = d.audit, finds = (a.counts && (a.counts.Critical || a.counts.High)) > 0, cut = Array.isArray(a.cut) && a.cut.length > 0;
+    showAudit(r, a, d.ready
+      ? (a.partly ? 'Partly checked: no Critical or High finding in what was read, but not everything was read. A push would go on; the list below says what to check by hand.' : 'Ready to publish: no Critical or High finding.')
+      : 'Not ready to publish: ' + (finds ? 'fix the Critical and High findings first' : 'a part of the check did not finish') + (finds && cut ? ', and a part of the check did not finish' : '') + '. With the publish guard on, a push is stopped until then.');
   } catch (e) { dialog('Check failed', [h('p', null, e.message)], [h('button', { class: 'btn accent', type: 'button', onclick: closeDialog }, 'Close')]); }
 }

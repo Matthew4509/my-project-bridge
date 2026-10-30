@@ -35,12 +35,13 @@ To try it with made-up projects first, double-click **`start-demo.cmd`**.
 ## Good to know
 
 - **Windows only** for now.
-- **The audit is a quick check**, not a full security test: a clean audit means "no common faults found", not "safe".
+- **The audit is a quick check**, not a full security test: a clean audit means "no common faults found", not "safe". **Passed, partly checked** means it could not read everything, and it lists what it did not read.
 - **Its only requests off your PC** go to the live addresses you add (plus a DNS lookup for them when you scan), and
   a Git version check only if you tick it, and GitHub only when you press **Check for updates**. Site pictures load your local pages as a browser would, with any fonts
   or scripts they load from the internet.
 - **Updates are signed.** **About › Updates** installs a newer version only when its maker signed it (a zip you
   pick yourself without that signature gets a warning first), and keeps the old one beside it to switch back.
+  The release key's fingerprint is `c13e bb6f 294e 3e1a b124 923b`: if the Bridge warns of a key it does not know, compare the fingerprint it shows with this one, read here on GitHub, never in a copy you were sent; unless they match exactly, do not install it.
 - **Meant for a PC with one Windows user.**
 - **To remove it:** double-click `uninstall.cmd`. It takes away the shortcuts and can put the Bridge's folder in the
   Recycle Bin for you. It never touches your projects, or your backups.

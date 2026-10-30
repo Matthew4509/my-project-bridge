@@ -115,6 +115,7 @@ How to test the Bridge and where its code lives. For what it does, see [README.m
 | `lib/projects.js` | Folders, names, descriptions, start commands |
 | `lib/audit.js`, `lib/audit-store.js` | The audit and its saved reports |
 | `lib/agents.js`, `lib/routes/skills.js`, `public/js/skills.js`, `tools/skill-check.js` | AI agent files: their checks in the audit, and Audits › Check a skill (also from a terminal) |
+| `lib/audit-part.js` | The parts of an audit on a helper thread, each with a time budget: a part stuck in a slow pattern is ended and reported, and the Bridge keeps answering |
 | `lib/gate.js`, `tools/gate.js`, `public/js/gate.js` | The publish guard: the pre-push hook it writes, what the hook runs, and the project's … › Publish guard window |
 | `lib/disclosure.js`, `tools/disclose.js` | The disclosure pass (private details, other projects' names, AI trail, local paths; git history, commit emails, zips); `tools/bake.js` uses the same matcher before it zips |
 | `lib/judged.js`, `tools/calibrate.js` | The judged list (Not a fault, Bring back, report-back import) kept in `data/judged.json`; the before/after over every project |
@@ -137,9 +138,11 @@ How to test the Bridge and where its code lives. For what it does, see [README.m
   into `lib/release.js` (`RELEASE_KEY`), which ships. Keep a copy of the private half somewhere safe.
 - **If the key is lost:** run `node tools/bake.js --new-key`. It makes a new pair and writes the new public half into
   `lib/release.js`. Bridges already installed carry the old public half, so they will not take that one version by
-  themselves: Check for updates tells them it is "signed with a key this Bridge does not know" and to install it by
-  hand once (Update from a zip…, then Install anyway, or unzip it as a first install). From that version on, they
-  carry the new key and updates are automatic again. A key that is only misplaced is better put back (or pointed at
+  themselves: Check for updates tells them it is "signed with a key this Bridge does not know", shows its fingerprint,
+  and says to compare it with the one in the README before installing it by hand once (Update from a zip…, then Install
+  anyway, or unzip it as a first install). So put the new fingerprint (`require('./lib/release').fingerprint(RELEASE_KEY)`)
+  in the README, USER-GUIDE.md and that release's notes. From that version on, they carry the new key and updates are
+  automatic again. A key that is only misplaced is better put back (or pointed at
   with `BRIDGE_RELEASE_KEY`): the bake stops and says so rather than making a new one by itself.
 - Updates come only from the fixed address in `lib/release.js`. The tests point them elsewhere with
   `BRIDGE_RELEASE_API` (a stand-in for GitHub's API) and `BRIDGE_RELEASE_GIT` (a bare repository).

@@ -31,6 +31,38 @@ const hook = dir => path.join(dir, '.git', 'hooks', 'pre-push');
 const globalHooks = (() => { try { return git(tmp, 'config', '--global', '--get', 'core.hooksPath').trim(); } catch { return ''; } })();
 
 (async () => {
+  const P = { name: 'Shop' };
+  const clean = { findings: [], partly: false, notRead: [], cut: [] };
+  check('the report: a clean audit is ready, with no word about what was not read', () => {
+    assert(/is ready to publish \(no Critical or High finding\)/.test(gate.report(P, clean)));
+    assert.strictEqual(gate.isReady({ ...clean, verdict: 'passed' }), true);
+  });
+  check('the report: partly checked does not say a plain ready, and lists what was not read; the push may go', () => {
+    const a = { findings: [], partly: true, notRead: ['Code files over 800 KB: 2'], cut: [], verdict: 'passed' };
+    const t = gate.report(P, a);
+    assert(/PARTLY CHECKED/.test(t) && /Code files over 800 KB: 2/.test(t), t);
+    assert(!/is ready to publish \(no Critical/.test(t), t);
+    assert.strictEqual(gate.isReady(a), true);
+  });
+  check('the report: a part that stopped or crashed is not ready, even with no finding', () => {
+    const a = { findings: [], partly: true, notRead: ['The code check stopped after 125 s, so what it found is lost'], cut: ['The code check stopped after 125 s, so what it found is lost'], verdict: 'passed' };
+    const t = gate.report(P, a);
+    assert.strictEqual(gate.isReady(a), false);
+    assert(/NOT READY TO PUBLISH/.test(t) && /did not finish/.test(t) && /125 s/.test(t), t);
+    assert(/do not use --no-verify/.test(t), t);
+  });
+  check('the report: faults and a stopped part together name both', () => {
+    const f = { sev: 'High', rule: 'SEC-001', where: 'a.js:1', title: 'A key', fix: 'Remove it.' };
+    const a = { findings: [f], partly: true, notRead: ['The AI agent files check crashed, so what it found is lost'], cut: ['The AI agent files check crashed, so what it found is lost'], verdict: 'fix-first' };
+    const t = gate.report(P, a);
+    assert(/1 fault to fix first/.test(t) && /did not finish/.test(t), t);
+    assert.strictEqual(gate.isReady(a), false);
+  });
+  check('the report: an audit saved before these fields reads as it did', () => {
+    assert(/is ready to publish \(/.test(gate.report(P, { findings: [] })));
+    assert.strictEqual(gate.isReady({ findings: [], verdict: 'passed' }), true);
+  });
+
   const plain = path.join(tmp, 'plain'); fs.mkdirSync(plain);
   check('a folder that is not a git repository has no guard to add', () => assert.strictEqual(gate.guardState(plain).state, 'no-git'));
 
@@ -99,6 +131,16 @@ const globalHooks = (() => { try { return git(tmp, 'config', '--global', '--get'
     check('a guard whose Bridge is gone stops the push and says how to turn it off', () => {
       assert.notStrictEqual(gone.status, 0);
       assert(/is gone/.test(gone.stderr) && /delete \.git\/hooks\/pre-push/.test(gone.stderr), gone.stderr);
+    });
+    // A check that crashed or ran out of time knows nothing about what it did not read: the push stops, and says so.
+    const g = repo('g');
+    git(g, 'remote', 'add', 'origin', remote);
+    gate.turnOn(g);
+    const cutPush = spawnSync('git', ['-C', g, 'push', 'origin', 'HEAD:cut'], { encoding: 'utf8', windowsHide: true, timeout: 120000, env: { ...process.env, BRIDGE_TEST_AUDIT_SLOW: 'code=crash' } });
+    check('a part of the audit that crashed stops the push, and the report says what was not checked', () => {
+      assert.notStrictEqual(cutPush.status, 0, cutPush.stderr);
+      assert(/did not finish/.test(cutPush.stderr) && /The code check crashed/.test(cutPush.stderr), cutPush.stderr);
+      assert(!/ready to publish \(/.test(cutPush.stderr), cutPush.stderr);
     });
     // The line the window gives for a project's own hook, added by hand as a person would: it runs as written (node
     // usually sits under "C:/Program Files", so each part must be quoted for sh).

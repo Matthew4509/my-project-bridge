@@ -206,7 +206,7 @@ binary files and very big changes are named, not shown. Read only: it saves, und
 - **Update from a zip…** takes a `my-project-bridge-<version>.zip` you downloaded or were given. Keep its signature
   file (`my-project-bridge-<version>.zip.sig`) beside it. A zip with no signature, or one that does not check out,
   gets a red warning that says what is wrong; **Cancel** is the default, and **Install anyway** is there for a zip you
-  trust (one you made yourself, say).
+  trust (one you made yourself, say). One signed with a key the Bridge does not know is treated the same, and shows that key's fingerprint: the release key's is `c13e bb6f 294e 3e1a b124 923b`, and the one in the README on the Bridge's GitHub page is the one to trust.
 - **Install** first starts the new version once as a test copy on a spare port. Only if it comes up does the Bridge
   close, put the new version in its own folder (so shortcuts, Start with Windows and the Load Bridge link keep
   working), move your `data` folder, `projects.json` and any files of your own across, and start again; the window
@@ -286,7 +286,7 @@ Medium = a warning; Low and Info = true but rarely harmful** (accessibility poli
 notes, a test file that checks nothing): they sit folded at the bottom of the audit and never change its verdict.
 Each rule keeps a **record** from the places people set aside as not a fault, across all your projects: a rule set
 aside in 3 or more files, and more often than it still stands, shows "check this one" beside its findings, and the
-audit lists the record of every rule it shows that someone has judged.
+audit lists the record of every rule it shows that someone has judged. **Passed, partly checked** (amber, ◐) means nothing was found in what was read, but not everything was read: a check ran out of time or crashed, or files were too big, could not be opened or were links out of the project; the audit lists them, and it is not a full pass.
 
 - **Code (about 130 rules):** private and API keys (placeholders and made-up keys are told apart), and a key or
   password taken out of the files that an older version in the **git history** still holds (SEC-012: Critical once
