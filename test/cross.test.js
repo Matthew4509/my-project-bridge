@@ -146,6 +146,36 @@ echo file_get_contents('https://api.weather-paid.example/v1?q=' . urlencode($tow
     { 'api.js': "const express = require('express');\nconst app = express();\nif (process.env.NODE_ENV !== 'production') {\n  app.get('/api/test-mail', async (req, res) => {\n    await sendMail(req.query.to, 'hello');\n    res.end();\n  });\n}\n" }],
   ['PAY-007', { 'webhooks/paddle.php': "<?php\n$event = json_decode(file_get_contents('php://input'), true);\nif ($event['event_type'] === 'transaction.completed') grant($event);\n" },
     { 'webhooks/paddle.php': "<?php\n$raw = file_get_contents('php://input');\nif (!hash_equals(hash_hmac('sha256', $raw, PADDLE_KEY), $_SERVER['HTTP_PADDLE_SIGNATURE'] ?? '')) { http_response_code(400); exit; }\n$event = json_decode($raw, true);\ngrant($event);\n" }],
+  // setting up sessions, or mounting a router named for sign-in, checks nobody
+  ['API-001', { 'srv.js': "const express = require('express');\nconst session = require('express-session');\nconst app = express();\napp.use(session({ secret: s }));\napp.get('/customers', async (req, res) => res.json(await Customer.find({})));\n" },
+    { 'srv.js': "const express = require('express');\nconst session = require('express-session');\nconst app = express();\napp.use(session({ secret: s }));\napp.use(requireLogin);\napp.get('/customers', async (req, res) => res.json(await Customer.find({})));\n" }],
+  ['API-001', { 'srv.js': "const express = require('express');\nconst app = express();\napp.use(authRoutes);\napp.get('/customers', async (req, res) => res.json(await Customer.find({})));\n" },
+    { 'srv.js': "const express = require('express');\nconst app = express();\napp.use(authMiddleware);\napp.get('/customers', async (req, res) => res.json(await Customer.find({})));\n" }],
+  ['API-001', { 'srv.js': "const express = require('express');\nconst app = express();\napp.get('/customers', async (req, res) => res.json(await Customer.find({})));\napp.use(authController);\n" },
+    { 'srv.js': "const express = require('express');\nconst app = express();\napp.get('/customers', requireLogin, async (req, res) => res.json(await Customer.find({})));\napp.use(authController);\n" }],
+  // a server action is a public address like any route
+  ['API-001', { 'app/actions.ts': "'use server';\nimport { prisma } from '@/lib/db';\nexport async function deleteOrder(id) {\n  await prisma.order.delete({ where: { id } });\n}\n" },
+    { 'app/actions.ts': "'use server';\nimport { prisma } from '@/lib/db';\nimport { auth } from '@/auth';\nexport async function deleteOrder(id) {\n  const s = await auth();\n  if (!s) throw new Error('Please sign in first.');\n  await prisma.order.deleteMany({ where: { id, userId: s.user.id } });\n}\n" }],
+  // one action of two has the check: the other is still open
+  ['API-001', { 'lib/actions.js': "'use server';\nexport async function renameOrder(id, n) {\n  const s = await getServerSession();\n  await prisma.order.update({ where: { id, userId: s.user.id }, data: { n } });\n}\nexport const dropOrder = async id => {\n  await prisma.order.delete({ where: { id } });\n};\n" },
+    { 'lib/actions.js': "'use server';\nexport async function renameOrder(id, n) {\n  const s = await getServerSession();\n  await prisma.order.update({ where: { id, userId: s.user.id }, data: { n } });\n}\nexport const dropOrder = async id => {\n  const s = await getServerSession();\n  await prisma.order.deleteMany({ where: { id, userId: s.user.id } });\n};\n" }],
+  // the name of an action is not a check
+  ['API-001', { 'app/users/actions.ts': "'use server';\nexport async function getUser(id) {\n  return prisma.user.findUnique({ where: { id } });\n}\n" },
+    { 'app/users/actions.ts': "'use server';\nexport async function getUser(id) {\n  const s = await auth();\n  return prisma.user.findUnique({ where: { id: s.user.id } });\n}\n" }],
+  // a list on the same route as a sign-up is not a sign-up
+  ['API-001', { 'app/api/users/route.ts': "import bcrypt from 'bcryptjs';\nexport async function GET() { return Response.json(await prisma.user.findMany()); }\nexport async function POST(req) {\n  const { email, password } = await req.json();\n  const hash = await bcrypt.hash(password, 10);\n  await prisma.user.create({ data: { email, hash } });\n  return Response.json({});\n}\n" },
+    { 'app/api/users/route.ts': "import bcrypt from 'bcryptjs';\nexport async function POST(req) {\n  const { email, password } = await req.json();\n  const hash = await bcrypt.hash(password, 10);\n  await prisma.user.create({ data: { email, hash } });\n  return Response.json({});\n}\n" }],
+  // creating a user with no password is not a sign-up
+  ['API-001', { 'pages/api/members.ts': "export default async function handler(req, res) { res.json(await prisma.member.create({ data: req.body })); }\n" },
+    { 'pages/api/members.ts': "export default async function handler(req, res) { const hash = await argon2.hash(req.body.password); res.json(await prisma.member.create({ data: { email: req.body.email, hash } })); }\n" }],
+  // PAY-007: Flask, and a webhook that only reads the signature header
+  ['PAY-007', { 'pay.py': "import stripe\n@app.route('/webhook', methods=['POST'])\ndef hook():\n    event = request.get_json()\n    fulfil(event)\n    return '', 200\n" },
+    { 'pay.py': "import stripe\n@app.route('/webhook', methods=['POST'])\ndef hook():\n    event = stripe.Webhook.construct_event(request.data, request.headers['Stripe-Signature'], SECRET)\n    fulfil(event)\n    return '', 200\n" }],
+  ['PAY-007', { 'app/api/stripe/webhook/route.ts': "export async function POST(req) {\n  const sig = req.headers.get('stripe-signature');\n  if (!sig) return new Response('No signature.', { status: 400 });\n  const event = await req.json();\n  await fulfil(event);\n  return Response.json({});\n}\n" },
+    { 'app/api/stripe/webhook/route.ts': "import { billing } from '@/services/billing';\nexport async function POST(req) {\n  const sig = req.headers.get('stripe-signature');\n  const event = billing.parse(await req.text(), sig);\n  await fulfil(event);\n  return Response.json({});\n}\n" }],
+  // RLS-001: database.sql in the project root
+  ['RLS-001', { 'src/db.js': "import { createClient } from '@supabase/supabase-js';\nexport const db = createClient(u, k);\n", 'database.sql': 'create table notes (id int);\n' },
+    { 'src/db.js': "import { createClient } from '@supabase/supabase-js';\nexport const db = createClient(u, k);\n", 'database.sql': 'create table notes (id int);\nalter table notes enable row level security;\n' }],
   ['RLS-001', { 'package.json': '{"dependencies":{"@supabase/supabase-js":"2.0.0"}}\n', 'src/db.js': "import { createClient } from '@supabase/supabase-js';\nexport const db = createClient(u, k);\n", 'schema.sql': 'DROP TABLE IF EXISTS profiles;\nCREATE TABLE IF NOT EXISTS "public"."profiles" (id uuid);\n' },
     { 'package.json': '{"dependencies":{"@supabase/supabase-js":"2.0.0"}}\n', 'src/db.js': "import { createClient } from '@supabase/supabase-js';\nexport const db = createClient(u, k);\n", 'schema.sql': 'DROP TABLE IF EXISTS profiles;\nCREATE TABLE IF NOT EXISTS "public"."profiles" (id uuid);\nALTER TABLE ONLY "public"."profiles" ENABLE ROW LEVEL SECURITY;\n' }],
 ];
@@ -220,6 +250,19 @@ const QUIET = [
   // PAY-007: a React hooks folder; a service object that handles the webhook elsewhere
   ['PAY-007', { 'src/hooks/useStripe.ts': "export const load = async (request) => { const r = await request.json(); return stripe(r); };\n" }],
   ['PAY-007', { 'app/api/stripe/webhook/route.ts': "import { billing } from '@/services/billing';\nexport async function POST(req) { const raw = await req.text(); await billing.handleWebhook(raw); return Response.json({}); }\n" }],
+  // DEBUG-002: a dynamic part after test is a feature (a quiz app's exam route)
+  ['DEBUG-002', { 'app/api/test/[id]/route.ts': "export async function GET() { return Response.json(await prisma.exam.findMany()); }\n" }],
+  ['DEBUG-002', { 'srv.js': "const express = require('express');\nconst app = express();\napp.get('/api/test/:id', async (req, res) => res.json(await Exam.find({})));\n" }],
+  // API-001: a sign-up by REST, with a look for the email first; a router under a public mount
+  ['API-001', { 'app/api/users/route.ts': "import bcrypt from 'bcryptjs';\nexport async function POST(req) {\n  const { email, password } = await req.json();\n  if (await prisma.user.findUnique({ where: { email } })) return Response.json({ error: 'That email already has an account.' }, { status: 409 });\n  const hash = await bcrypt.hash(password, 10);\n  await prisma.user.create({ data: { email, hash } });\n  return Response.json({});\n}\n" }],
+  ['API-001', { 'routes/users.js': "const router = require('express').Router();\nrouter.post('/', async (req, res) => {\n  const hash = await bcrypt.hash(req.body.password, 10);\n  res.json(await User.create({ email: req.body.email, hash }));\n});\nmodule.exports = router;\n" }],
+  ['API-001', { 'routes/webhooks.js': "const router = require('express').Router();\nrouter.post('/', async (req, res) => {\n  await Order.updateOne({ id: req.body.id }, { paid: true });\n  res.end();\n});\nmodule.exports = router;\n", 'server.js': "const express = require('express');\nconst app = express();\nconst hooks = require('./routes/webhooks');\napp.use('/api/webhooks', hooks);\n" }],
+  // API-001: server actions that are sign-in, a form, or that check through a helper or a wrapped client
+  ['API-001', { 'app/actions.ts': "'use server';\nexport async function signUp(formData) {\n  await prisma.user.create({ data: { email: formData.get('email') } });\n}\nexport async function sendContact(formData) {\n  await prisma.enquiry.create({ data: { text: formData.get('text') } });\n}\n" }],
+  ['API-001', { 'app/actions.ts': "'use server';\nasync function me() { const s = await auth(); if (!s) throw new Error('Please sign in first.'); return s.user; }\nexport async function dropOrder(id) {\n  const u = await me();\n  await prisma.order.deleteMany({ where: { id, userId: u.id } });\n}\n" }],
+  ['API-001', { 'app/actions.ts': "'use server';\nexport const dropOrder = authAction.action(async ({ id, ctx }) => {\n  await prisma.order.deleteMany({ where: { id, userId: ctx.user.id } });\n});\n" }],
+  // a 'use server' written inside a function of a component is not a file of actions
+  ['API-001', { 'app/page.tsx': "export default function Page() {\n  async function go() {\n    'use server';\n    await prisma.order.deleteMany();\n  }\n  return <form action={go} />;\n}\nexport async function other() { return prisma.order.deleteMany(); }\n" }],
   // API-001/002: honest routes
   ['API-001', { 'app/api/health/route.ts': "export async function GET() { await prisma.user.count(); return Response.json({ ok: true }); }\n" }],
   ['API-002', { 'app/api/blog/route.ts': "export async function GET() { return Response.json(await prisma.post.findMany({ where: { published: true } })); }\n" }],

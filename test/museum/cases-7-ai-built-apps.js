@@ -457,4 +457,321 @@ app.add_middleware(
     allow_credentials=True,
 )
 ` }),
+  R('ai-cors-star-in-a-list', 'CORS-003', 'FastAPI CORS reads its origins from a list that holds "*"', 'api.py',
+    { 'api.py': `from fastapi.middleware.cors import CORSMiddleware
+origins = ["*"]
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True)
+` },
+    { 'api.py': `from fastapi.middleware.cors import CORSMiddleware
+origins = ["https://app.test"]
+app.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True)
+` }),
+  R('ai-cors-callback-says-yes', 'CORS-003', 'A CORS origin function that says yes to every site', 'server/cors.js',
+    { 'server/cors.js': `const cors = require('cors');
+app.use(cors({ origin: (origin, cb) => cb(null, true), credentials: true }));
+` },
+    { 'server/cors.js': `const cors = require('cors');
+app.use(cors({ origin: (origin, cb) => cb(null, ALLOWED.includes(origin)), credentials: true }));
+` }),
+  R('ai-cors-falls-back-to-star', 'CORS-003', 'CORS falls back to every site when a setting is missing', 'server/env-cors.js',
+    { 'server/env-cors.js': `const cors = require('cors');
+app.use(cors({ origin: process.env.CLIENT_URL || '*', credentials: true }));
+` },
+    { 'server/env-cors.js': `const cors = require('cors');
+app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+` }),
+  R('ai-cors-nest', 'CORS-003', 'NestJS enableCors open to every site with credentials on', 'src/main.ts',
+    { 'src/main.ts': `const app = await NestFactory.create(AppModule);
+app.enableCors({ origin: true, credentials: true });
+` },
+    { 'src/main.ts': `const app = await NestFactory.create(AppModule);
+app.enableCors({ origin: 'https://app.test', credentials: true });
+` }),
+
+  // ---- a second walk: shapes the first rules missed ----
+  X('ai-route-session-setup-is-no-check', 'API-001', 'Setting up sessions checks nobody: the route after it is still open', 'server/shop.js',
+    { 'server/shop.js': `const express = require('express');
+const session = require('express-session');
+const app = express();
+app.use(session({ secret: process.env.SESSION_KEY }));
+app.get('/api/customers', async (req, res) => res.json(await Customer.find({})));
+` },
+    { 'server/shop.js': `const express = require('express');
+const session = require('express-session');
+const app = express();
+app.use(session({ secret: process.env.SESSION_KEY }));
+app.get('/api/customers', requireUser, async (req, res) => res.json(await Customer.find({})));
+` }),
+  X('ai-route-auth-router-is-no-check', 'API-001', 'Mounting a router named for sign-in checks nobody', 'server/mounts.js',
+    { 'server/mounts.js': `const express = require('express');
+const app = express();
+app.use(authRoutes);
+app.get('/api/customers', async (req, res) => res.json(await Customer.find({})));
+` },
+    { 'server/mounts.js': `const express = require('express');
+const app = express();
+app.use(authRoutes);
+app.get('/api/customers', requireUser, async (req, res) => res.json(await Customer.find({})));
+` }),
+  X('ai-server-action-open', 'API-001', 'A server action deletes an order with no check; anyone can call a server action', 'app/orders/actions.ts',
+    { 'app/orders/actions.ts': `'use server';
+import { prisma } from '@/lib/db';
+export async function deleteOrder(id) {
+  await prisma.order.delete({ where: { id } });
+}
+` },
+    { 'app/orders/actions.ts': `'use server';
+import { prisma } from '@/lib/db';
+import { auth } from '@/auth';
+export async function deleteOrder(id) {
+  const session = await auth();
+  if (!session) throw new Error('Please sign in first.');
+  await prisma.order.deleteMany({ where: { id, userId: session.user.id } });
+}
+` }),
+  Q('quiet-ai-sign-ups', '^API-', 'A sign-up by REST and by server action, a router under a public mount, a quiz app\'s exam route',
+    { 'app/api/users/route.ts': `import bcrypt from 'bcryptjs';
+export async function POST(req) {
+  const { email, password } = await req.json();
+  const hash = await bcrypt.hash(password, 10);
+  await prisma.user.create({ data: { email, hash } });
+  return Response.json({ ok: true });
+}
+`, 'app/actions.ts': `'use server';
+export async function signUp(formData) {
+  await prisma.user.create({ data: { email: formData.get('email') } });
+}
+`, 'routes/hooks-in.js': `const router = require('express').Router();
+router.post('/', async (req, res) => {
+  await Order.updateOne({ id: req.body.id }, { paid: true });
+  res.end();
+});
+module.exports = router;
+`, 'server.js': `const express = require('express');
+const app = express();
+const incoming = require('./routes/hooks-in');
+app.use('/api/webhooks', incoming);
+` }),
+  Q('quiet-ai-test-with-an-id', '^DEBUG-', 'An exam route of a quiz app is not a leftover test route',
+    { 'app/api/test/[id]/route.ts': `export async function GET() { return Response.json(await prisma.exam.findMany()); }
+` }),
+  R('ai-pay-one-line', 'PAY-006', 'The amount and the payment on one line', 'api/fast-pay.js',
+    { 'api/fast-pay.js': `const { amount } = await req.json(); const intent = await stripe.paymentIntents.create({ amount, currency: 'usd' });
+` },
+    { 'api/fast-pay.js': `const { itemId } = await req.json(); const intent = await stripe.paymentIntents.create({ amount: priceOf(itemId), currency: 'usd' });
+` }),
+  R('ai-pay-through-zod', 'PAY-006', 'A schema checks the amount, but the visitor still chooses it', 'api/zod-pay.js',
+    { 'api/zod-pay.js': `const { amount } = schema.parse(await req.json());
+await stripe.paymentIntents.create({ amount, currency: 'usd' });
+` },
+    { 'api/zod-pay.js': `const { itemId } = schema.parse(await req.json());
+const amount = priceOf(itemId);
+await stripe.paymentIntents.create({ amount, currency: 'usd' });
+` }),
+  R('ai-pay-form-action', 'PAY-006', 'A server action charges the amount from the form', 'lib/buy-action.js',
+    { 'lib/buy-action.js': `export async function buy(formData) {
+  const amount = Number(formData.get('amount'));
+  await stripe.paymentIntents.create({ amount, currency: 'usd' });
+}
+` },
+    { 'lib/buy-action.js': `export async function buy(formData) {
+  const amount = priceOf(String(formData.get('id')));
+  await stripe.paymentIntents.create({ amount, currency: 'usd' });
+}
+` }),
+  R('ai-pay-fastapi', 'PAY-006', 'A FastAPI body\'s amount goes to Stripe', 'pay_api.py',
+    { 'pay_api.py': `@app.post('/pay')
+def pay(body: CheckoutIn):
+    return stripe.PaymentIntent.create(amount=body.amount, currency='usd')
+` },
+    { 'pay_api.py': `@app.post('/pay')
+def pay(body: CheckoutIn):
+    item = ITEMS[body.item_id]
+    return stripe.PaymentIntent.create(amount=item.price, currency='usd')
+` }),
+  R('ai-pay-flask', 'PAY-006', 'A Flask JSON amount goes to Stripe', 'pay_flask.py',
+    { 'pay_flask.py': `data = request.get_json()
+amount = data['amount']
+intent = stripe.PaymentIntent.create(amount=amount, currency='usd')
+` },
+    { 'pay_flask.py': `data = request.get_json()
+amount = PRICES[data['item']]
+intent = stripe.PaymentIntent.create(amount=amount, currency='usd')
+` }),
+  R('ai-public-prefix-sveltekit', 'ENV-001', 'SvelteKit and Astro publish anything named PUBLIC_', '.env.production',
+    { '.env.production': `PUBLIC_SITE_URL=https://shop.test
+PUBLIC_OPENAI_API_KEY=made-up-value-not-a-key
+` },
+    { '.env.production': `PUBLIC_SITE_URL=https://shop.test
+OPENAI_API_KEY=made-up-value-not-a-key
+` }),
+  R('ai-env-static-public', 'ENV-002', 'A key imported from SvelteKit\'s public settings', 'src/lib/llm.ts',
+    { 'src/lib/llm.ts': `import { PUBLIC_OPENAI_API_KEY } from '$env/static/public';
+export const key = PUBLIC_OPENAI_API_KEY;
+` },
+    { 'src/lib/llm.ts': `import { PUBLIC_SITE_URL } from '$env/static/public';
+export const site = PUBLIC_SITE_URL;
+` }),
+  R('ai-next-config-env', 'ENV-003', 'next.config copies a key into the browser code through env', 'next.config.js',
+    { 'next.config.js': `module.exports = {
+  env: {
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  },
+};
+` },
+    { 'next.config.js': `module.exports = {
+  env: {
+    SITE_URL: process.env.SITE_URL,
+  },
+};
+` }),
+  R('ai-vite-define-whole-env', 'ENV-003', 'vite define puts every setting in the browser code', 'vite.config.js',
+    { 'vite.config.js': `export default defineConfig({
+  define: { 'process.env': process.env },
+});
+` },
+    { 'vite.config.js': `export default defineConfig({
+  define: { 'process.env': {} },
+});
+` }),
+  R('ai-nuxt-public-secret', 'ENV-003', 'nuxt runtimeConfig.public holds a secret key', 'nuxt.config.ts',
+    { 'nuxt.config.ts': `export default defineNuxtConfig({
+  runtimeConfig: {
+    public: {
+      stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+    },
+  },
+});
+` },
+    { 'nuxt.config.ts': `export default defineNuxtConfig({
+  runtimeConfig: {
+    stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+    public: {
+      siteUrl: process.env.SITE_URL,
+    },
+  },
+});
+` }),
+  R('ai-astro-script-not-frontmatter', 'KEY-001', 'In an Astro page only a script block reaches the browser', 'src/pages/report.astro',
+    { 'src/pages/report.astro': `---
+const title = 'Report';
+---
+<script>
+const db = createClient(url, serviceRoleKey);
+</script>
+` },
+    { 'src/pages/report.astro': `---
+const db = createClient(url, import.meta.env.SUPABASE_SERVICE_ROLE_KEY);
+const rows = await db.from('rows').select('*');
+---
+<p>{rows.length}</p>
+` }),
+  R('ai-component-client-or-server', 'KEY-001', 'With an app/ router a component is browser code only if a client file imports it', 'components/Stats.tsx',
+    { 'app/layout.tsx': `export default function Layout({ children }) { return children; }
+`, 'components/Stats.tsx': `export async function Stats() {
+  const db = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return db.name;
+}
+`, 'components/Panel.tsx': `'use client';
+import { Stats } from './Stats';
+export const Panel = () => <Stats />;
+` },
+    { 'app/layout.tsx': `export default function Layout({ children }) { return children; }
+`, 'components/Stats.tsx': `export async function Stats() {
+  const db = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return db.name;
+}
+`, 'app/page.tsx': `import { Stats } from '../components/Stats';
+export default function Page() { return <Stats />; }
+` }),
+  R('ai-key-by-usual-ending-env', 'ENV-004', 'A service key known only by its usual ending, with a public prefix', '.env.staging',
+    { '.env.staging': `VITE_RAPIDAPI_KEY=made-up-value-not-a-key
+` },
+    { '.env.staging': `VITE_FIREBASE_API_KEY=made-up-public-value
+VITE_MAPBOX_TOKEN=made-up-public-value
+` }),
+  R('ai-key-by-usual-ending-code', 'ENV-002', 'Browser code reads a service key known only by its usual ending', 'src/gen.js',
+    { 'src/gen.js': `export const key = import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY;
+` },
+    { 'src/gen.js': `export const key = import.meta.env.VITE_FIREBASE_API_KEY;
+` }),
+  Q('quiet-ai-public-keys', '^ENV-', 'Keys that are meant to be in the page',
+    { '.env': `VITE_FIREBASE_API_KEY=made-up-public-value
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=made-up-public-value
+VITE_MAPBOX_TOKEN=made-up-public-value
+VITE_MAPBOX_ACCESS_TOKEN=made-up-public-value
+NEXT_PUBLIC_POSTHOG_KEY=made-up-public-value
+NEXT_PUBLIC_SENTRY_DSN=https://madeup@sentry.test/1
+NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY=made-up-public-value
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=made-up-public-value
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=made-up-public-value
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=made-up-public-value
+PUBLIC_SITE_URL=https://shop.test
+GATSBY_SITE_URL=https://shop.test
+VUE_APP_TITLE=Shop
+`, 'src/keys.js': `export const k = [import.meta.env.VITE_FIREBASE_API_KEY, process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY, import.meta.env.VITE_MAPBOX_ACCESS_TOKEN, import.meta.env.PUBLIC_SITE_URL];
+` }),
+  R('ai-log-setting', 'LOG-001', 'A secret setting is written to the log', 'lib/boot.js',
+    { 'lib/boot.js': `console.log('OpenAI key:', process.env.OPENAI_API_KEY);
+` },
+    { 'lib/boot.js': `console.log('OpenAI key set:', Boolean(process.env.OPENAI_API_KEY));
+` }),
+  R('ai-log-login-body', 'LOG-001', 'A sign-in\'s whole body, password and all, is written to the log', 'routes/sign-in.js',
+    { 'routes/sign-in.js': `export function signIn(req, res) {
+  console.log('Login attempt:', req.body);
+  return check(req.body.email, req.body.password, res);
+}
+` },
+    { 'routes/sign-in.js': `export function signIn(req, res) {
+  console.log('Login attempt:', req.body.email);
+  return check(req.body.email, req.body.password, res);
+}
+` }),
+  R('ai-log-headers', 'LOG-001', 'A request\'s whole headers, cookies and all, are written to the log', 'lib/trace.js',
+    { 'lib/trace.js': `export const trace = req => console.log('Headers:', req.headers);
+` },
+    { 'lib/trace.js': `export const trace = req => console.log('Host:', req.headers.host);
+` }),
+  X('ai-webhook-flask', 'PAY-007', 'A Flask payment webhook with no signature check', 'pay_hook.py',
+    { 'pay_hook.py': `import stripe
+@app.route('/webhook', methods=['POST'])
+def hook():
+    event = request.get_json()
+    fulfil(event)
+    return '', 200
+` },
+    { 'pay_hook.py': `import stripe
+@app.route('/webhook', methods=['POST'])
+def hook():
+    event = stripe.Webhook.construct_event(request.data, request.headers['Stripe-Signature'], SECRET)
+    fulfil(event)
+    return '', 200
+` }),
+  X('ai-webhook-reads-header-only', 'PAY-007', 'A webhook reads the signature header and never checks it', 'app/api/pay/webhook/route.ts',
+    { 'app/api/pay/webhook/route.ts': `export async function POST(req) {
+  const sig = req.headers.get('stripe-signature');
+  if (!sig) return new Response('No signature.', { status: 400 });
+  const event = await req.json();
+  await fulfil(event);
+  return Response.json({ received: true });
+}
+` },
+    { 'app/api/pay/webhook/route.ts': `export async function POST(req) {
+  const sig = req.headers.get('stripe-signature');
+  const event = stripe.webhooks.construct` + `Event(await req.text(), sig, process.env.STRIPE_WEBHOOK_SECRET);
+  if (event.livemode !== LIVE_MODE) return Response.json({ ignored: true });
+  await fulfil(event);
+  return Response.json({ received: true });
+}
+` }),
+  X('ai-table-no-rls-database-sql', 'RLS-001', 'database.sql in the project root creates a table with no row-level security', 'database.sql',
+    { 'src/db.js': `import { createClient } from '@supabase/supabase-js';
+export const db = createClient(url, key);
+`, 'database.sql': `create table notes (id uuid primary key);
+` },
+    { 'src/db.js': `import { createClient } from '@supabase/supabase-js';
+export const db = createClient(url, key);
+`, 'database.sql': `create table notes (id uuid primary key);
+alter table notes enable row level security;
+` }),
 ];

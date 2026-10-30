@@ -132,6 +132,59 @@ const PAIRS = [
   ['PAY-006', 'checkout.php', `<?php\n$i = \\Stripe\\PaymentIntent::create(['amount' => (int) $_POST['amount'], 'currency' => 'usd']);\n`, `<?php\n$price = price_of((int) $_POST['item']);\n$i = \\Stripe\\PaymentIntent::create(['amount' => $price, 'currency' => 'usd']);\n`],
   ['LOG-001', 'auth.ts', `export const signIn = async (session) => {\n  console.info('signed in', session?.user?.id, req.headers.authorization);\n};\n`, `export const signIn = async (session) => {\n  console.info('signed in', session?.user?.id);\n};\n`],
   ['CORS-003', 'server.ts', `import cors from 'cors';\napp.use(cors({ origin: '*', credentials: true }));\n`, `import cors from 'cors';\napp.use(cors({ origin: '*' }));\n`],
+  // PAY-006: the shorthand on a const line, on one line or two
+  ['PAY-006', 'api/one-line.js', `const { amount } = await req.json(); const intent = await stripe.paymentIntents.create({ amount, currency: 'usd' });\n`, `const { itemId } = await req.json(); const intent = await stripe.paymentIntents.create({ amount: priceOf(itemId), currency: 'usd' });\n`],
+  ['PAY-006', 'api/two-lines.js', `const { amount } = req.body;\nconst intent = await stripe.paymentIntents.create({ amount, currency: 'usd' });\n`, `const { id } = req.body;\nconst amount = priceOf(id);\nconst intent = await stripe.paymentIntents.create({ amount, currency: 'usd' });\n`],
+  // PAY-006 through a schema, a form and Python frameworks
+  ['PAY-006', 'api/zod.js', `const { amount } = schema.parse(await req.json());\nawait stripe.paymentIntents.create({ amount, currency: 'usd' });\n`, `const { itemId } = schema.parse(await req.json());\nconst amount = priceOf(itemId);\nawait stripe.paymentIntents.create({ amount, currency: 'usd' });\n`],
+  ['PAY-006', 'api/safe.js', `const body = await req.json();\nconst parsed = schema.safeParse(body);\nawait stripe.paymentIntents.create({ amount: parsed.data.amount, currency: 'usd' });\n`, `const body = await req.json();\nconst parsed = schema.safeParse(body);\nawait stripe.paymentIntents.create({ amount: priceOf(parsed.data.id), currency: 'usd' });\n`],
+  ['PAY-006', 'api/safe2.js', `const body = await req.json();\nconst data = schema.safeParse(body).data;\nawait stripe.paymentIntents.create({ amount: data.price, currency: 'usd' });\n`, `const body = await req.json();\nconst data = schema.safeParse(body).data;\nawait stripe.paymentIntents.create({ amount: PRICES[data.id], currency: 'usd' });\n`],
+  ['PAY-006', 'lib/pay-action.js', `export async function pay(formData) {\n  const amount = Number(formData.get('amount'));\n  await stripe.paymentIntents.create({ amount, currency: 'usd' });\n}\n`, `export async function pay(formData) {\n  const id = String(formData.get('id'));\n  const amount = priceOf(id);\n  await stripe.paymentIntents.create({ amount, currency: 'usd' });\n}\n`],
+  ['PAY-006', 'lib/pay-inline.js', `await stripe.paymentIntents.create({\n  amount: Number(formData.get('price')) * 100,\n  currency: 'usd',\n});\n`, `await stripe.paymentIntents.create({\n  amount: priceOf(formData.get('id')) * 100,\n  currency: 'usd',\n});\n`],
+  ['PAY-006', 'fast.py', `@app.post('/pay')\ndef pay(body: CheckoutIn):\n    return stripe.PaymentIntent.create(amount=body.amount, currency='usd')\n`, `@app.post('/pay')\ndef pay(body: CheckoutIn):\n    item = ITEMS[body.item_id]\n    return stripe.PaymentIntent.create(amount=item.price, currency='usd')\n`],
+  ['PAY-006', 'flaskpay.py', `data = request.get_json()\namount = data['amount']\nintent = stripe.PaymentIntent.create(\n    amount=amount,\n    currency='usd',\n)\n`, `data = request.get_json()\namount = PRICES[data['item']]\nintent = stripe.PaymentIntent.create(\n    amount=amount,\n    currency='usd',\n)\n`],
+  // public prefixes of SvelteKit, Astro, Vue CLI and Gatsby
+  ['ENV-001', '.env.staging', `PUBLIC_OPENAI_API_KEY=made-up-value\nGATSBY_STRIPE_SECRET_KEY=made-up-value\n`, `PUBLIC_SITE_URL=https://shop.test\nGATSBY_SITE_URL=https://shop.test\nOPENAI_API_KEY=made-up-value\n`],
+  ['ENV-001', 'v/.env', `VUE_APP_ANTHROPIC_API_KEY=made-up-value\n`, `VUE_APP_TITLE=Shop\n`],
+  ['ENV-002', 'src/lib/ai.ts', `import { PUBLIC_OPENAI_API_KEY } from '$env/static/public';\n`, `import { PUBLIC_SITE_URL } from '$env/static/public';\n`],
+  ['ENV-002', 'src/lib/ai2.ts', `import { env } from '$env/dynamic/public';\nconst k = env.PUBLIC_OPENAI_API_KEY;\n`, `import { env } from '$env/dynamic/public';\nconst k = env.PUBLIC_SITE_URL;\n`],
+  ['ENV-002', 'src/ai3.ts', `const k = import.meta.env.PUBLIC_OPENAI_API_KEY;\n`, `const k = import.meta.env.PUBLIC_SITE_URL;\n`],
+  ['ENV-002', 'src/ai4.js', `const k = process.env.VUE_APP_OPENAI_API_KEY;\nconst g = process.env.GATSBY_STRIPE_SECRET_KEY;\n`, `const k = process.env.VUE_APP_TITLE;\nconst g = process.env.GATSBY_SITE_URL;\n`],
+  ['KEY-002', 'p/.env', `PUBLIC_SUPABASE_KEY=${token('service_role')}\n`, `PUBLIC_SUPABASE_KEY=${token('anon')}\n`],
+  // build configs that copy a secret into the browser code
+  ['ENV-003', 'next.config.js', `module.exports = { env: {\n  OPENAI_API_KEY: process.env.OPENAI_API_KEY,\n} };\n`, `module.exports = { env: {\n  SITE_URL: process.env.SITE_URL,\n} };\n`],
+  ['ENV-003', 'next.config.mjs', `export default { env: { STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY } };\n`, `export default { serverRuntimeConfig: { STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY } };\n`],
+  ['ENV-003', 'vite.config.js', `export default { define: { 'process.env': process.env } };\n`, `export default { define: { 'process.env': {} } };\n`],
+  ['ENV-003', 'w/vite.config.ts', `export default { define: {\n  'process.env.SUPABASE_SERVICE_ROLE_KEY': JSON.stringify(env.SUPABASE_SERVICE_ROLE_KEY),\n} };\n`, `export default { define: {\n  'process.env.SUPABASE_URL': JSON.stringify(env.SUPABASE_URL),\n} };\n`],
+  ['ENV-003', 'nuxt.config.ts', `export default defineNuxtConfig({ runtimeConfig: {\n  public: {\n    stripeSecretKey: process.env.STRIPE_SECRET_KEY,\n  },\n} });\n`, `export default defineNuxtConfig({ runtimeConfig: {\n  stripeSecretKey: process.env.STRIPE_SECRET_KEY,\n  public: {\n    siteUrl: process.env.SITE_URL,\n  },\n} });\n`],
+  // Astro: only a <script> block reaches the browser
+  ['KEY-001', 'src/pages/admin.astro', `---\nconst title = 'Admin';\n---\n<script>\nconst db = createClient(url, serviceRoleKey);\n</script>\n`, `---\nconst db = createClient(url, import.meta.env.SUPABASE_SERVICE_ROLE_KEY);\n---\n<script>\nconst x = 1;\n</script>\n`],
+  ['KEY-003', 'src/pages/stats.astro', `---\nconst title = 'Stats';\n---\n<script>\nimport admin from 'firebase-admin';\n</script>\n`, `---\nimport admin from 'firebase-admin';\n---\n<p>Stats</p>\n`],
+  ['KEY-004', 'src/pages/key.astro', `<script>\nimport key from './serviceAccountKey.json';\n</script>\n`, `---\nimport key from './serviceAccountKey.json';\n---\n<p>{key.project_id}</p>\n`],
+  ['ENV-002', 'src/pages/ai.astro', `<script>\nconst k = import.meta.env.PUBLIC_OPENAI_API_KEY;\n</script>\n`, `---\nconst k = import.meta.env.PUBLIC_OPENAI_API_KEY;\n---\n<p>{k.length}</p>\n`],
+  // ENV-002 and ENV-004: a key by its generic name
+  ['ENV-002', 'src/k1.js', `const a = import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY;\n`, `const a = import.meta.env.VITE_FIREBASE_API_KEY;\n`],
+  ['ENV-002', 'src/k2.js', `const a = import.meta.env.VITE_RAPIDAPI_KEY;\n`, `const a = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;\n`],
+  ['ENV-002', 'src/k3.js', `const a = import.meta.env.VITE_STABILITY_API_KEY;\n`, `const a = import.meta.env.VITE_MAPBOX_TOKEN;\n`],
+  ['ENV-002', 'src/k4.js', `const a = import.meta.env.VITE_ELEVEN_LABS_API_KEY;\n`, `const a = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;\n`],
+  ['ENV-002', 'src/k5.js', `const a = process.env.NEXT_PUBLIC_SANITY_TOKEN;\n`, `const a = process.env.NEXT_PUBLIC_POSTHOG_KEY;\n`],
+  ['ENV-002', 'src/k6.js', `const a = import.meta.env.VITE_DISCORD_WEBHOOK_URL;\n`, `const a = process.env.NEXT_PUBLIC_SENTRY_DSN;\n`],
+  ['ENV-002', 'src/k7.js', `const a = import.meta.env.VITE_FIREBASE_SERVICE_ACCOUNT;\n`, `const a = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY;\n`],
+  ['ENV-002', 'src/k8.js', `const a = process.env.NEXT_PUBLIC_SENTRY_AUTH_TOKEN;\n`, `const a = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;\n`],
+  ['ENV-002', 'src/k9.js', `const a = import.meta.env.VITE_MAPBOX_SECRET_TOKEN;\n`, `const a = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;\n`],
+  ['ENV-004', '.env.preview', `VITE_RAPIDAPI_KEY=made-up-value\nNEXT_PUBLIC_SANITY_TOKEN=made-up-value\n`, `VITE_FIREBASE_API_KEY=made-up-value\nVITE_MAPBOX_TOKEN=made-up-value\nVITE_RAPIDAPI_KEY=your_key_here\n`],
+  // LOG-001: the settings, a whole login body, whole headers
+  ['LOG-001', 'l/e1.js', `console.log('OpenAI key:', process.env.OPENAI_API_KEY);\n`, `console.log('OpenAI key set:', !!process.env.OPENAI_API_KEY);\n`],
+  ['LOG-001', 'l/e2.js', `console.log('JWT_SECRET:', process.env.JWT_SECRET);\n`, `console.log('Site:', process.env.SITE_URL);\n`],
+  ['LOG-001', 'l/e3.js', `console.log(process.env);\n`, `console.log(process.env.NODE_NAME);\n`],
+  ['LOG-001', 'routes/login.js', `const check = password => password;\nconsole.log('Login attempt:', req.body);\n`, `const check = password => password;\nconsole.log('Login attempt:', req.body.email);\n`],
+  ['LOG-001', 'l/h.js', `console.log('Headers:', req.headers);\n`, `console.log('Host:', req.headers.host);\n`],
+  // CORS-003: every site by another road
+  ['CORS-003', 'c/fast.py', `from fastapi.middleware.cors import CORSMiddleware\norigins = ["*"]\napp.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True)\n`, `from fastapi.middleware.cors import CORSMiddleware\norigins = ["https://app.test"]\napp.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True)\n`],
+  ['CORS-003', 'c/cb.js', `const cors = require('cors');\napp.use(cors({ origin: (o, cb) => cb(null, true), credentials: true }));\n`, `const cors = require('cors');\napp.use(cors({ origin: (o, cb) => cb(null, LIST.includes(o)), credentials: true }));\n`],
+  ['CORS-003', 'c/cb2.js', `const cors = require('cors');\napp.use(cors({\n  credentials: true,\n  origin: function (o, cb) {\n    cb(null, true);\n  },\n}));\n`, `const cors = require('cors');\napp.use(cors({\n  credentials: true,\n  origin: function (o, cb) {\n    if (!LIST.includes(o)) return cb(new Error('Not allowed.'));\n    cb(null, true);\n  },\n}));\n`],
+  ['CORS-003', 'c/or.js', `const cors = require('cors');\napp.use(cors({ origin: process.env.CLIENT_URL || '*', credentials: true }));\n`, `const cors = require('cors');\napp.use(cors({ origin: process.env.CLIENT_URL || 'https://app.test', credentials: true }));\n`],
+  ['CORS-003', 'c/nest.ts', `app.enableCors({ origin: true, credentials: true });\n`, `app.enableCors({ origin: 'https://app.test', credentials: true });\n`],
 ];
 
 // Must stay quiet: shapes the rules first flagged on real projects, wrongly (written again with made-up names).
@@ -204,6 +257,18 @@ const QUIET = [
   ['CORS-003', 'vite.config.js', `// cors dev server\nexport default { server: { cors: { origin: true, credentials: true } } };\n`],
   ['CORS-003', 'y/dev.js', `const cors = require('cors');\nconst dev = process.env.NODE_ENV !== 'production';\nif (dev) app.use(cors({ origin: true, credentials: true }));\n`],
   ['CORS-003', 'y/flask.py', `from flask_cors import CORS\nCORS(app, origins=["https://app.test"], supports_credentials=True)\n`],
+  // a price chosen by id: the id goes into a lookup, it is not the amount
+  ['PAY-006', 'api/lookup.js', `const { id } = req.body;\nawait stripe.paymentIntents.create({ amount: PRICES[id], currency: 'usd' });\nawait stripe.paymentIntents.create({ amount: priceOf(id), currency: 'usd' });\n`],
+  // a config that only reads a key for the server, or a define with a harmless name
+  ['ENV-003', 'next.config.ts', `export default { serverRuntimeConfig: {\n  OPENAI_API_KEY: process.env.OPENAI_API_KEY,\n}, env: { SITE_URL: process.env.SITE_URL } };\n`],
+  ['ENV-001', 'k/.env', `PUBLIC_SITE_URL=https://shop.test\nPUBLIC_KEY=made-up-public-value\nPUBLIC_API_URL=https://api.shop.test\n`],
+  ['ENV-002', 'src/public-names.js', `const a = [import.meta.env.PUBLIC_SITE_URL, process.env.GATSBY_SITE_URL, process.env.VUE_APP_TITLE, process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY, process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY];\n`],
+  // a log line that says whether the value is there
+  ['LOG-001', 'x/set.js', `console.log('key', process.env.OPENAI_API_KEY ? 'set' : 'missing');\nconsole.log(Boolean(process.env.JWT_SECRET));\nconsole.log(process.env.OPENAI_API_KEY?.length);\n`],
+  ['LOG-001', 'x/form.js', `console.log('Saved form:', req.body);\n`],
+  // CORS-003: a list named for its sites, and an open CORS with no credentials
+  ['CORS-003', 'y/list.py', `from fastapi.middleware.cors import CORSMiddleware\norigins = ["https://a.test"]\napp.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=True)\nother = ["*"]\n`],
+  ['CORS-003', 'y/open.py', `from fastapi.middleware.cors import CORSMiddleware\norigins = ["*"]\napp.add_middleware(CORSMiddleware, allow_origins=origins, allow_credentials=False)\n`],
 ];
 
 async function main() {
@@ -217,6 +282,16 @@ async function main() {
   QUIET.forEach(([id, file, text], n) => w('quiet/q' + n + '/' + file, text));
   // INJ-013's quiet case: this project adds the scheme to every website where it is saved (in another file).
   w('quiet/q-save/listing-save.php', "<?php\n$site = preg_match('#^https?://#i', $site) ? $site : 'https://' . $site;\n");
+  // KEY and ENV rules in a project with an app/ router: a component with no 'use client' runs on the server, unless a
+  // client file imports it.
+  const SERVER_PART = `export async function Stats() {\n  const db = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);\n  const key = process.env.NEXT_PUBLIC_OPENAI_API_KEY;\n  return db.name + key;\n}\n`;
+  const LAYOUT = `export default function Layout({ children }) { return children; }\n`;
+  w('quiet/q-router/app/layout.tsx', LAYOUT);
+  w('quiet/q-router/app/page.tsx', `import { Stats } from '../components/Stats';\nconst k = process.env.NEXT_PUBLIC_OPENAI_API_KEY;\nexport default function Page() { return <Stats />; }\n`);
+  w('quiet/q-router/components/Stats.tsx', SERVER_PART);
+  w('loud/l-router/src/app/layout.tsx', LAYOUT);
+  w('loud/l-router/src/components/Stats.tsx', SERVER_PART);
+  w('loud/l-router/src/components/Panel.tsx', `'use client';\nimport { Stats } from './Stats';\nexport const Panel = () => <Stats />;\n`);
   const loud = await runAudit(path.join(tmp, 'loud'), null, { root: false });
   const quiet = await runAudit(path.join(tmp, 'quiet'), null, { root: false });
   const at = (r, id, n, file) => r.findings.some(f => f.rule === id && f.where.startsWith('c' + n + '/' + file));
@@ -228,6 +303,10 @@ async function main() {
     check(id + ' stays quiet on ' + file + ' (a shape it once flagged on a real project)', () =>
       assert(!quiet.findings.some(f => f.rule === id && f.where.startsWith('q' + n + '/')), 'flagged ' + (quiet.findings.find(f => f.rule === id && f.where.startsWith('q' + n + '/')) || {}).where));
   });
+  for (const id of ['KEY-001', 'ENV-002']) {
+    check(id + ' fires on a component a client file imports (app/ router)', () => assert(loud.findings.some(f => f.rule === id && f.where.startsWith('l-router/src/components/Stats.tsx')), 'not found'));
+    check(id + ' stays quiet on a server component (app/ router)', () => assert(!quiet.findings.some(f => f.rule === id && f.where.startsWith('q-router/')), 'flagged'));
+  }
   // Every new rule has a pair here; ids are unique across the whole list.
   check('every rule in rules-more.js has a pair', () => {
     const have = new Set(PAIRS.map(p => p[0]));

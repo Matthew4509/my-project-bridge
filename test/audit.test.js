@@ -197,6 +197,7 @@ async function honestVerdict() {
   check('a link to a folder inside the project is not a gap', () => assert.strictEqual(inner.partly, false, JSON.stringify(inner.notRead)));
   // A file git ignores stays on this PC: too big to read there is no gap. The same file published is one.
   w('ignored/.gitignore', 'data/\n');
+  w('ignored/index.html', '<!doctype html><title>Shop</title>\n');
   w('ignored/data/huge.js', '// ' + rep('x', 900 * 1024) + '\n');
   const gitIn = (d, ...args) => require('child_process').execFileSync('git', ['-C', d, ...args], { stdio: 'ignore', windowsHide: true });
   const igd = path.join(tmp, 'ignored');
@@ -523,6 +524,50 @@ async function main() {
   const R1 = await runAudit(skipped, null), R2 = await runAudit(skipped, null, { skip: ['extra'] });
   check('RLS-001 fires on a table with no row-level security', () => assert(R1.findings.some(f => f.rule === 'RLS-001')));
   check('RLS-001 does not read a folder on the skip list', () => assert(!R2.findings.some(f => f.rule === 'RLS-001')));
+
+  // Keys in files the web rules are not written for: compiled languages, config files, minified code.
+  const liveKey = 'sk_' + 'live_' + '4eC39HqLyjWDarjtT1zdp7dc';
+  for (const name of ['Program.cs', 'main.go', 'app.rb', 'App.java', 'Main.kt', 'src/main.rs', 'main.c', 'lib/main.dart', 'A.swift', 'app.config', 'app.properties', 'app.min.js']) {
+    const d = path.join(tmp, 'lang-' + name.replace(/\W/g, '-'));
+    fs.mkdirSync(path.dirname(path.join(d, name)), { recursive: true });
+    fs.writeFileSync(path.join(d, name), 'var k = "' + liveKey + '";\n');
+    const r = await runAudit(d, null);
+    check('a live key in ' + name + ' is found', () => assert(r.verdict === 'fix-first' && r.findings.some(f => /^SEC-/.test(f.rule)), JSON.stringify(r.findings)));
+  }
+  const keysOnly = path.join(tmp, 'keys-only');
+  fs.mkdirSync(keysOnly, { recursive: true });
+  fs.writeFileSync(path.join(keysOnly, 'app.min.js'), 'el.innerHTML=location.hash;document.write(location.search);eval(location.hash);\n');
+  fs.writeFileSync(path.join(keysOnly, 'Program.cs'), 'var q = "SELECT * FROM a WHERE b=" + x; // eval(c)\n');
+  const KO = await runAudit(keysOnly, null);
+  check('those files are read for keys only: the web rules say nothing about them', () => assert.deepStrictEqual(KO.findings.filter(f => !f.where.startsWith('.')).map(f => f.rule), []));
+
+  // Nothing read is not a pass.
+  const onlyPictures = path.join(tmp, 'only-pictures');
+  fs.mkdirSync(onlyPictures, { recursive: true });
+  fs.writeFileSync(path.join(onlyPictures, 'a.png'), 'not really');
+  const NP = await runAudit(onlyPictures, null);
+  check('a folder with nothing the check reads is partly checked, and says so', () => assert(NP.partly && NP.filesScanned === 0 && NP.notRead.some(n => /No file of a kind/.test(n)), JSON.stringify(NP.notRead)));
+  const builtOnly = path.join(tmp, 'built-only');
+  fs.mkdirSync(path.join(builtOnly, 'dist'), { recursive: true });
+  fs.writeFileSync(path.join(builtOnly, 'dist', 'index.js'), 'var a = 1;\n');
+  const BO = await runAudit(builtOnly, null);
+  check('a project that is only build output is partly checked too', () => assert(BO.partly && BO.notRead.some(n => /No file of a kind/.test(n)), JSON.stringify(BO.notRead)));
+  const GONE = await runAudit(path.join(tmp, 'never-was-here'), null);
+  check('a folder that cannot be opened did not finish: nothing was read, and that is said plainly', () => {
+    assert(GONE.cut.length === 1 && /project folder could not be opened/.test(GONE.cut[0]), JSON.stringify(GONE.cut));
+    assert(!GONE.notRead.some(n => /\.\./.test(n)), JSON.stringify(GONE.notRead));
+  });
+  check('a publish guard does not call that ready', () => assert.strictEqual(require('../lib/gate').isReady(GONE), false));
+
+  // A thread that ends by itself between two parts: the next part starts another at once, not after its whole budget.
+  const dying = path.join(tmp, 'dying-worker.js');
+  fs.writeFileSync(dying, "const { parentPort } = require('worker_threads');\nlet n = 0;\nconst send = parentPort.postMessage.bind(parentPort);\nparentPort.postMessage = m => { send(m); if (m && 'result' in m && ++n === 2) setImmediate(() => process.exit(0)); };\nrequire(" + JSON.stringify(path.join(HERE, 'lib', 'audit-part.js')) + ");\n");
+  const dyingDir = path.join(tmp, 'dying-project');
+  fs.mkdirSync(dyingDir, { recursive: true });
+  fs.writeFileSync(path.join(dyingDir, 'a.js'), 'var a = 1;\n');
+  const t1 = Date.now();
+  const DY = await runAudit(dyingDir, null, { root: false, workerFile: dying, budgets: { code: 2000, agents: 2000, disclosure: 8000 }, graceMs: 1000, disclosure: { details: [], others: [], own: [] } });
+  check('a thread gone between parts does not cost the next part its budget', () => { assert(Date.now() - t1 < 6000, (Date.now() - t1) + ' ms'); assert.deepStrictEqual(DY.cut, []); });
 
   await timeBudgets();
   await honestVerdict();

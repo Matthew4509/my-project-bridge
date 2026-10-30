@@ -95,6 +95,7 @@ function showAudit(r, a, lead) {
   const partly = a.partly === true, notRead = Array.isArray(a.notRead) ? a.notRead : [], didNotFinish = Array.isArray(a.cut) && a.cut.length > 0;
   const head = c.Critical || c.High ? 'Fix the Critical and High faults before this goes live.'
     : didNotFinish ? 'A part of the check did not finish, so nothing is known about what it did not read. This is not a pass: scan again.'
+    : partly && a.filesScanned === 0 ? 'No file of a kind the check reads was found, so this is not a pass.'
     : partly ? (c.Medium ? 'No Critical or High faults in what was read, but not everything was read. Medium ones are warnings.' : 'No faults in what was read, but not everything was read, so this is not a full pass.')
     : c.Medium ? 'No Critical or High faults. Medium ones are warnings.' : (c.Low || c.Info) ? 'Passed: only low-priority findings (below).' : 'Passed every rule that ran.';
   const liveNote = a.url ? (a.liveReached ? 'Checked ' + a.url + ' as well as the code.' : a.liveReached === null ? 'The check of ' + a.url + ' did not finish in time, so it does not count.' : a.url + ' did not answer, so it was not checked.') : 'The local copy was not running, so localhost was not checked.';

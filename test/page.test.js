@@ -86,6 +86,11 @@ check('the audit label: a part that did not finish never says Passed', () => {
   assert.deepStrictEqual(label({ counts: { Medium: 2 }, partly: true, cut: ['The code check crashed'] }), { cls: 'a-warn', text: '■ 2 Medium, check did not finish', when: 'today' });
   assert.strictEqual(label({ counts: { High: 1 }, partly: true, cut: ['The code check crashed'] }).text, '▲ 1 High');
 });
+check('the audit label: an audit that read no file never says Passed', () => {
+  assert.deepStrictEqual(label({ counts: {}, partly: true, filesScanned: 0 }), { cls: 'a-warn', text: '◐ No code was read', when: 'today' });
+  assert.strictEqual(label({ counts: {}, partly: true, filesScanned: 3 }).text, '◐ Passed, partly checked');
+  assert.strictEqual(label({ counts: {}, filesScanned: 0 }).text, '✓ Passed');
+});
 check('the audit label: an old saved audit with no partly field shows as it did', () => {
   assert.deepStrictEqual(label({ counts: {} }), { cls: 'a-ok', text: '✓ Passed', when: 'today' });
   assert.deepStrictEqual(label({ counts: { Medium: 2 } }), { cls: 'a-warn', text: '■ 2 Medium', when: 'today' });
