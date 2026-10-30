@@ -261,7 +261,8 @@ start command** window says which one and why.
 
 ## Names and descriptions: `projects.json`
 
-The Bridge **never writes into a project's folder**. Names, descriptions, live addresses, extra start commands and
+The Bridge **never writes into a project's folder** (the one exception is the publish guard's `.git/hooks/pre-push`,
+written only when you turn the guard on for that project). Names, descriptions, live addresses, extra start commands and
 audit settings live in the Bridge's own `projects.json` (next to `server.js`), keyed by folder name. The release zip
 comes with an empty one; in a cloned copy, copy **`projects.example.json`** to `projects.json` first. Then edit it:
 
@@ -347,6 +348,16 @@ audit lists the record of every rule it shows that someone has judged.
   without asking, an MCP server fetched at whatever version is newest, and every project MCP server switched on.
   A worktree copy inside `.claude` is the project again, so it is not read twice. The same install line is a warning
   in a guide (it names where the program comes from) and Critical in a hook or script, which runs it on its own.
+- **Publish guard** (a project's **…** menu › Publish guard…, for a git repository): checks the project with this
+  audit before every `git push`, from any tool (Claude Code, GitHub Desktop, a terminal), and **stops the push while
+  the audit says "fix first"** (a Critical or High finding). Waiting to fix is better than publishing a fault. It is
+  the audit Scan app runs, without the localhost and live-site parts (a push does not wait on the network), and a
+  finding you set aside as **Not a fault** no longer stops a push. **Ready to publish?** runs the same check now.
+  Turning it on writes one file, the project's `.git/hooks/pre-push` (git never uploads it); Turn off removes it,
+  and a pre-push hook of the project's own is never changed: the window gives the line to add to it instead (the
+  same when hooks live elsewhere, as with Husky's `core.hooksPath`). A stopped push names each fault and its fix. To
+  push anyway, knowing what it holds: `git push --no-verify`. If the Bridge the guard was turned on from is moved or
+  removed, pushes stop and say how to take the guard off.
 - **Audits › Check a skill…** runs the same check on a skill, plugin or agent folder **before** you install it:
   paste its `SKILL.md`, or choose its folder or its `.zip` / `.skill` file. It answers **Do not install**, **Read these
   first** or **No known attack found**, and lists what the skill does: the scripts and hooks it runs, the services it
@@ -492,7 +503,9 @@ audit lists the record of every rule it shows that someone has judged.
   browser, a terminal or a folder, shortcuts, the folder picker and the Load Bridge link are "not available yet"
   there, and there are no site pictures. It has not been tested.
 - **Does it change my projects?** No. It never writes into a project's folder and never runs git commands that
-  change anything there. The one exception is its own folder, when you install an update (About > Updates). It only starts the start commands stored in each project's own files when you click
+  change anything there. The one exception is the publish guard: when you turn it on for a project, it writes that
+  project's `.git/hooks/pre-push` (git never uploads it), and Turn off removes it. Its own folder changes when you
+  install an update (About > Updates). It only starts the start commands stored in each project's own files when you click
   **Run local copy**.
 - **How do I remove it?** Double-click `uninstall.cmd` and type **y** when it asks about the Recycle Bin. (**About >
   Uninstall** takes the shortcuts away too; then delete the `my-project-bridge` folder yourself.)
@@ -505,6 +518,9 @@ the audit show labels instead of your private details, but they do name the proj
 before you paste it.
 
 ## What's new (not released yet)
+
+- **Publish guard** (a project's … menu): stops a `git push` while the audit says "fix first", from any tool, and
+  says what to fix. **Ready to publish?** runs the same check on demand.
 
 - **Check a skill** (Audits › Check a skill…): paste a skill, or choose its folder or zip, and see before you install
   it whether it hides instructions for the agent, sends keys or files away, downloads and runs a program, or sets

@@ -302,6 +302,7 @@ function openMenu(r, anchor) {
     menuItem(0xE71A, 'Stop what holds port ' + r.portInUse, 'another program', () => stopPort(r.portInUse)), h('hr'));
   items.push(menuItem(0xEA18, 'Scan app (audit)', scanParts(r), () => scan(r)));
   if (r.audit) items.push(menuItem(0xE81C, 'Last audit', auditLabel(r.audit).when, () => showLastAudit(r)));
+  if (r.git && r.git.state !== 'none') items.push(menuItem(0xE72E, 'Publish guard…', 'check before every push', () => gateDialog(r)));
   items.push(menuItem(0xE909, 'Hosted live…', r.liveUrl ? hostOf(r.liveUrl) : 'add the address', () => liveDialog(r)));
   const bm = backupMark(r.backup);
   items.push(menuItem(0xE88E, 'Back up now…', bm ? bm.text.slice(2).toLowerCase() : 'zip it to your backup drive', () => openRun([r.id])));

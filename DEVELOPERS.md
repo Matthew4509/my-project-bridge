@@ -31,6 +31,10 @@ How to test the Bridge and where its code lives. For what it does, see [README.m
 - `node test/cross.test.js`: every rule in `lib/cross.js` fires on a small made-up project and stays quiet on it
   fixed, plus the shapes these rules once flagged wrongly on real projects (a library function, a policy that covers
   one page, a test suite with its own failure counter ...), as must-stay-quiet projects.
+- `node test/gate.test.js`: the publish guard (`lib/gate.js`, `tools/gate.js`): on and off per project, a project's
+  own pre-push hook and `core.hooksPath` left alone (the line to add given), and real pushes to a bare repository
+  through the hook: let through when ready, stopped (remote unchanged, the fault named) with a key, stopped and
+  explained when the Bridge it points at is gone.
 - `node test/agents.test.js`: the AI agent files check (`lib/agents.js`): Check a skill on pasted text, a folder and a
   zip (never unpacked to disk), each verdict, what a skill does (scripts, hooks, services, keys), a key sent to a
   service the skill never names, the same install line in a guide (a warning) and in a hook (Critical), the agent
@@ -111,6 +115,7 @@ How to test the Bridge and where its code lives. For what it does, see [README.m
 | `lib/projects.js` | Folders, names, descriptions, start commands |
 | `lib/audit.js`, `lib/audit-store.js` | The audit and its saved reports |
 | `lib/agents.js`, `lib/routes/skills.js`, `public/js/skills.js`, `tools/skill-check.js` | AI agent files: their checks in the audit, and Audits › Check a skill (also from a terminal) |
+| `lib/gate.js`, `tools/gate.js`, `public/js/gate.js` | The publish guard: the pre-push hook it writes, what the hook runs, and the project's … › Publish guard window |
 | `lib/disclosure.js`, `tools/disclose.js` | The disclosure pass (private details, other projects' names, AI trail, local paths; git history, commit emails, zips); `tools/bake.js` uses the same matcher before it zips |
 | `lib/judged.js`, `tools/calibrate.js` | The judged list (Not a fault, Bring back, report-back import) kept in `data/judged.json`; the before/after over every project |
 | `lib/live.js`, `lib/live-state.js` | Hosted live checks and live vs local |

@@ -54,7 +54,7 @@ function addFolderDialog() {
 }
 function addProjectDialog() {
   folderDialog({ title: 'Add a project', purpose: 'project', okLabel: 'Add project',
-    lead: 'For a project kept outside your working folders. The Bridge only reads the folder; it never changes its files.',
+    lead: 'For a project kept outside your working folders. The Bridge only reads the folder; it never changes its files (the publish guard, if you turn it on, adds one git hook).',
     submit: async p => {
       const r = await api('/api/projects/add', { path: p });
       if (!r.ok) return r;

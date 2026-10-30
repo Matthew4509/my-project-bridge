@@ -85,7 +85,7 @@ function gitDialog(r) {
     fact('Folder', r.dir),
     g.changes || g.state === 'empty' ? h('p', { style: 'margin:12px 0 0' }, h('button', { class: 'btn', type: 'button', onclick: () => changesDialog(r) }, icon(0xE7C3), 'See what changed')) : null,
     ...(gitSteps(g) || []),
-    h('p', { class: 'muted', style: 'font-size:13px;margin-top:12px' }, 'The Bridge only reads git here: it never commits, pushes or changes the folder. Refresh reads it again.')],
+    h('p', { class: 'muted', style: 'font-size:13px;margin-top:12px' }, 'The Bridge only reads git here: it never commits, pushes or changes the folder (apart from the publish guard\'s hook, when you turn it on). Refresh reads it again.')],
     [h('button', { class: 'btn accent', type: 'button', onclick: closeDialog }, 'Close')], 'wide');
 }
 // See what changed: every changed file since the last save, line by line, to read before committing. Read only.

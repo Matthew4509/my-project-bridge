@@ -11,7 +11,9 @@ PC, especially people who build them with AI coding tools such as Claude Code or
 - **Watches** your live sites (up, unsure or down) and your git backups (saved, pushed, or only on this PC).
 - **Backs up** your projects as zips to a USB drive you choose, each one read back and checked before it counts.
 - **Counts** the AI tokens each project has used (Claude Code and Codex).
-- **Stays on your PC.** It never sends your code to an AI or anywhere else, and never changes your projects' files.
+- **Guards your pushes** if you want: a per-project publish guard stops a `git push` while the audit says "fix first".
+- **Stays on your PC.** It never sends your code to an AI or anywhere else, and never changes your projects' files
+  (apart from the publish guard's git hook, written only when you turn it on).
 
 ## Quick start
 
