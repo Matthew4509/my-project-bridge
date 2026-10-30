@@ -230,6 +230,160 @@ async function honestVerdict() {
   });
 }
 
+// --- keys in what git would publish but the code rules never read ---
+const mkRepo = name => {
+  const d = path.join(tmp, name);
+  const g = (...a) => require('child_process').execFileSync('git', ['-C', d, ...a], { stdio: 'ignore', windowsHide: true });
+  g('init', '-q'); g('config', 'user.email', '1+t@users.noreply.github.com'); g('config', 'user.name', 'T'); g('config', 'commit.gpgsign', 'false');
+  g('add', '-A'); g('commit', '-qm', 'one');
+  return d;
+};
+async function keysInWhatIsPublished() {
+  const rnd = n => require('crypto').randomBytes(n * 2).toString('base64').replace(/[^A-Za-z0-9]/g, '').slice(0, n);
+  const key = () => 'sk_' + 'live_' + rnd(24);
+  const ctx = own => ({ details: [], others: [], own: [own] });
+  const PLACES = ['dist/assets/i.js', 'public/build/app.js', 'nb.ipynb', 'db.sql', 'a.bak', 'Dockerfile', 'data.csv', 'letter.rtf', '.npmrc', 'notes.md', 'src/app.js.map'];
+  for (const rel of PLACES) w('keys/' + rel, 'token = "' + key() + '"\n');
+  w('keys/deploy/id_rsa', '-----BEGIN ' + 'PRIVATE KEY-----\n' + rnd(64) + '\n' + rnd(64) + '\n-----END ' + 'PRIVATE KEY-----\n');
+  const d = mkRepo('keys');
+  const K = await runAudit(d, null, { disclosure: ctx('keys') });
+  for (const rel of PLACES) check('a key in ' + rel + ' is found, in the shape the code rules use', () => {
+    const f = K.findings.find(x => x.rule === 'SEC-003' && x.where === rel + ':1');
+    assert(f && f.sev === 'Critical' && f.area === 'secrets' && f.fp && f.fix, K.findings.map(x => x.rule + '@' + x.where).join(', '));
+  });
+  check('a private key in a file with no extension is found', () => assert(K.findings.some(x => x.rule === 'SEC-001' && x.where === 'deploy/id_rsa:1'), K.findings.map(x => x.rule + '@' + x.where).join(', ')));
+  check('so the verdict is fix-first, not passed', () => assert.strictEqual(K.verdict, 'fix-first'));
+  const K0 = await runAudit(d, null, {});
+  check('with no disclosure context the code rules alone read as before', () => assert(!K0.findings.some(f => PLACES.some(p => f.where.startsWith(p))), K0.findings.map(x => x.where).join(', ')));
+
+  // Read once: a file the code rules read is not reported again; a copy in a build folder is the same fault.
+  const same = 'const k = "' + key() + '";\n';
+  w('once/src/pay.js', same); w('once/dist/pay.js', same); w('once/keep.js', 'const c = "' + key() + '";\n');
+  const O = await runAudit(mkRepo('once'), null, { disclosure: ctx('once') });
+  check('a key the code rules read is one finding, with its build copy listed', () => {
+    const hits = O.findings.filter(f => f.rule === 'SEC-003' && /pay\.js/.test(f.where + (f.also || []).join()));
+    assert(hits.length === 1 && hits[0].also && hits[0].also.length === 1, JSON.stringify(hits.map(f => [f.where, f.also])));
+    assert.strictEqual(O.findings.filter(f => f.rule === 'SEC-003' && f.where === 'keep.js:1').length, 1);
+  });
+  // The same care as the code rules: placeholders, tests, long lines, a person's judgement, ignored files, zips.
+  const hook = 'whsec_' + rnd(30);
+  w('care/place.csv', 'k,' + 'sk_' + 'live_' + 'xxxxxxxxxxxxxxxxxxxxxxxx' + '\n');
+  w('care/tests/data.csv', 'k,' + hook + '\n');
+  w('care/seen.csv', 'k,' + hook + '\n');
+  w('care/dist/long.js', 'var a="' + rep('x', 9000) + '";var k="' + key() + '";var b="' + rep('y', 9000) + '";\n');
+  w('care/docs.md', 'Set it like this: password: "' + rnd(12) + '"\n');
+  w('care/secret.log', 'k=' + key() + '\n'); w('care/.gitignore', '*.log\n');
+  const zipFrom = path.join(tmp, 'care-zip'); fs.mkdirSync(zipFrom, { recursive: true });
+  fs.writeFileSync(path.join(zipFrom, 'inner.csv'), 'k,' + key() + '\n');
+  require('child_process').execFileSync(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe'), ['-a', '-c', '-f', path.join(tmp, 'care', 'rel.zip'), '-C', zipFrom, 'inner.csv'], { windowsHide: true });
+  const cd = mkRepo('care');
+  const C = await runAudit(cd, null, { disclosure: ctx('care') });
+  const atC = where => C.findings.filter(f => String(f.where).startsWith(where));
+  check('a placeholder in a csv stays quiet', () => assert(!atC('place.csv').length, JSON.stringify(atC('place.csv'))));
+  check('a test folder keeps the code rules\' handling (only Critical)', () => assert(!atC('tests/data.csv').length && atC('seen.csv').some(f => f.rule === 'SEC-005'), C.findings.map(x => x.rule + '@' + x.where).join(', ')));
+  check('a key inside one long minified line is found through the slices', () => assert(atC('dist/long.js').some(f => f.rule === 'SEC-003'), C.findings.map(x => x.rule + '@' + x.where).join(', ')));
+  check('a password example in a markdown note is not a finding', () => assert(!atC('docs.md').length, JSON.stringify(atC('docs.md'))));
+  check('a file git ignores is not read for this', () => assert(!atC('secret.log').length));
+  check('a zip\'s entries are not read for this', () => assert(!C.findings.some(f => f.area === 'secrets' && / > /.test(f.where)), C.findings.map(x => x.where).join(', ')));
+  const seen = atC('seen.csv').find(f => f.rule === 'SEC-005');
+  const CJ = await runAudit(cd, null, { disclosure: ctx('care'), judged: [{ id: 'j2', rule: 'SEC-005', file: 'seen.csv', fp: seen.fp, verdict: 'false', why: 'made-up', by: 'test' }] });
+  check('a person\'s "not a fault" sets it aside', () => assert(!CJ.findings.some(f => f.where.startsWith('seen.csv')) && CJ.setAside.some(f => f.where.startsWith('seen.csv'))));
+  const CT = await runAudit(cd, null, { disclosure: ctx('care'), budgets: { disclosure: 1 } });
+  check('past the soft deadline it stops with the rest of the pass', () => assert(CT.cut.length === 1 && !CT.findings.some(f => f.where.startsWith('seen.csv')), JSON.stringify(CT.cut)));
+  // A build folder: its keys are checked, so it is a note, not a gap.
+  w('built/index.js', 'let a = 1;\n'); w('built/dist/app.js', 'let b = 2;\n'); w('built/public/build/x.js', 'let c = 3;\n');
+  const B = await runAudit(mkRepo('built'), null, { disclosure: ctx('built') });
+  check('a build folder is named in a note as read for keys only, and is not "not read"', () => {
+    assert(B.notes.some(n => /read for keys only/i.test(n) && /dist\//.test(n) && /public\/build\//.test(n)), B.notes.join('|'));
+    assert.strictEqual(B.partly, false, JSON.stringify(B.notRead));
+  });
+  // No git: what the .gitignore leaves.
+  w('nogit/a.bak', 'k=' + key() + '\n'); w('nogit/b.bak', 'k=' + key() + '\n'); w('nogit/.gitignore', 'b.bak\n'); w('nogit/index.js', 'let a = 1;\n');
+  const N = await runAudit(path.join(tmp, 'nogit'), null, { disclosure: ctx('nogit') });
+  check('with no git, what its .gitignore leaves is read for keys', () => assert(N.findings.some(f => f.where === 'a.bak:1') && !N.findings.some(f => f.where === 'b.bak:1'), N.findings.map(x => x.where).join(', ')));
+
+  // A project cannot vouch for itself: folders its own project.json asks to leave out are named, and read for keys.
+  w('own/src/pay.js', 'const k = "' + key() + '";\n'); w('own/api/x.js', 'let x = 1;\n'); w('own/index.js', 'let a = 1;\n'); w('own/mine/y.js', 'let y = 1;\n');
+  const ownDir = path.join(tmp, 'own');
+  const S = await runAudit(ownDir, null, { skip: ['src', 'api', 'no-such-folder'], skipOwn: ['src', 'api', 'no-such-folder'], disclosure: ctx('own') });
+  check('a project\'s own auditSkip counts as not read, naming the folders that exist', () => assert(S.partly && S.notRead.includes('Folders this project\'s own project.json asks to leave out: src, api'), JSON.stringify(S.notRead)));
+  check('and the key in such a folder is still found', () => assert(S.findings.some(f => f.rule === 'SEC-003' && f.where === 'src/pay.js:1'), S.findings.map(x => x.where).join(', ')));
+  const P = await runAudit(ownDir, null, { skip: ['mine'], disclosure: ctx('own') });
+  check('the person\'s own skip stays deliberate', () => assert(!P.notRead.some(n => /project\.json/.test(n)), JSON.stringify(P.notRead)));
+  // auditInclude only ever brings folders back: a project cannot use it to leave one out.
+  const { findRoots } = require('../lib/roots');
+  w('inc/old/a.js', 'let a = 1;\n'); w('inc/src/b.js', 'let b = 1;\n');
+  check('auditInclude cannot leave anything out', () => {
+    assert(findRoots(path.join(tmp, 'inc'), { include: ['old', 'src'] }).left.length === 0);
+    assert.deepStrictEqual(findRoots(path.join(tmp, 'inc'), { include: ['src'] }).left.map(l => l.rel), ['old']);
+  });
+
+  // The Review with AI prompt says when the audit it stands on was partly checked or cut.
+  const { buildPrompt } = require('../lib/review');
+  const pr = a => buildPrompt({ name: 'P', folder: 'p', dir: ownDir, auditSkip: [] }, a);
+  check('the review prompt names what the audit did not read', () => {
+    assert(/did not read everything/.test(pr({ findings: [], partly: true, notRead: ['Code files over 800 KB: 2'], cut: [] })) && /Code files over 800 KB: 2/.test(pr({ findings: [], partly: true, notRead: ['Code files over 800 KB: 2'], cut: [] })));
+    assert(/did not finish/.test(pr({ findings: [], partly: true, notRead: ['The code check crashed'], cut: ['The code check crashed'] })));
+    assert(!/did not read everything|did not finish/.test(pr({ findings: [] })));
+  });
+}
+
+// --- SEC-004 in the places passwords really sit, and a site whose root is its web folder ---
+async function configPasswordsAndRootWebroot() {
+  const PW = 'Hu7kQ2mZp' + '9x';
+  const LOUD = {
+    'wp-config.php': "<?php define('DB_PASSWORD', '" + PW + "');",
+    'wp2.php': '<?php define( "DB_PASS", "' + PW + '" );',
+    'config.properties': 'spring.datasource.password=' + PW,
+    'app.ini': '[db]\npassword = ' + PW + ' ; the shop',
+    'settings.yml': 'db:\n  password: ' + PW + '   # the shop',
+    'compose.yaml': 'env:\n  - DB_PASSWORD=' + PW,
+    'appsettings.json': '{ "Default": "Server=db;Database=shop;User Id=sa;Password=' + PW + ';" }',
+  };
+  const QUIET = {
+    'wp-config-sample.php': "<?php define( 'DB_PASSWORD', 'password_here' );",
+    'wp3.php': "<?php define('DB_PASSWORD', getenv('DB_PASSWORD'));",
+    'a.properties': 'password=${DB_PASSWORD_SECRET}',
+    'b.ini': 'password = %(db_password)s',
+    'c.yml': 'password: ${DB_PASSWORD_SECRET}',
+    'd.yml': 'password: password',
+    'e.yml': 'password: {{ vault_password }}',
+    'f.yml': 'password: <your-password>',
+    'g.yml': 'password: changeme-please',
+    'h.yml': 'password:\n  type: string',
+    'i.yml': 'password: required',
+    'j.json': '{ "Default": "Server=db;Database=shop;User Id=sa;Password=${DB_PASSWORD_SECRET};" }',
+    'k.json': '{ "Default": "Server=db;Database=shop;User Id=sa;Password=%(db_password)s;" }',
+    'docker-compose.yml': 'env:\n  - DB_PASSWORD=' + PW,
+    'l.ini': '# password = ' + PW,
+  };
+  for (const [f, t] of Object.entries({ ...LOUD, ...QUIET })) w('pw/' + f, t);
+  const A = await runAudit(path.join(tmp, 'pw'), null, {});
+  const hits = f => A.findings.filter(x => ['SEC-004', 'SEC-013', 'SEC-014', 'SEC-015'].includes(x.rule) && x.where.startsWith(f + ':'));
+  for (const f of Object.keys(LOUD)) check('SEC-004 fires on ' + f + ', once', () => assert.strictEqual(hits(f).length, 1, A.findings.filter(x => x.where.startsWith(f)).map(x => x.rule + '@' + x.where).join(', ')));
+  for (const f of Object.keys(QUIET)) check('SEC-004 quiet on ' + f, () => assert.strictEqual(hits(f).length, 0));
+
+  // The project folder is the site: what sits at its top is what visitors can ask for.
+  const site = name => { w(name + '/index.html', '<!doctype html><title>x</title>'); w(name + '/backup.zip', 'PK'); w(name + '/db.sql', '--'); w(name + '/error_log', 'x'); return path.join(tmp, name); };
+  const R = await runAudit(site('rootsite'), null, {});
+  check('a static site at the project\'s top: a dump, an archive and a log there fire', () => {
+    const ids = new Set(R.findings.map(f => f.rule));
+    assert(ids.has('EXP-002') && ids.has('EXP-003') && ids.has('EXP-006'), [...ids].join(','));
+  });
+  w('rootphp/index.php', '<?php echo 1;'); w('rootphp/dump.bak', '--');
+  const RP = await runAudit(path.join(tmp, 'rootphp'), null, {});
+  check('a PHP site at the top: a backup there fires', () => assert(RP.findings.some(f => f.rule === 'EXP-002'), JSON.stringify(RP.findings.map(f => f.rule))));
+  const withBuild = site('rootbuild'); w('rootbuild/package.json', '{"name":"x","dependencies":{}}');
+  const RB = await runAudit(withBuild, null, {});
+  check('with a package.json the top is not taken as the site', () => assert(!RB.findings.some(f => /^EXP-00[236]$/.test(f.rule)), JSON.stringify(RB.findings.map(f => f.rule))));
+  const withWeb = site('rootweb'); w('rootweb/public_html/index.html', '<p>x</p>');
+  const RW = await runAudit(withWeb, null, {});
+  check('with a web folder inside, the top is not the site', () => assert(!RW.findings.some(f => /^EXP-00[236]$/.test(f.rule)), JSON.stringify(RW.findings.map(f => f.rule))));
+  w('rootgit/index.html', '<p>x</p>');
+  const RG = await runAudit(mkRepo('rootgit'), null, {});
+  check('a site\'s own .git at the top is not called a downloadable folder', () => assert(!RG.findings.some(f => f.rule === 'EXP-005'), JSON.stringify(RG.findings.map(f => f.rule))));
+}
+
 async function main() {
   // --- planted faults ---
   const bad = path.join(tmp, 'bad');
@@ -571,6 +725,8 @@ async function main() {
 
   await timeBudgets();
   await honestVerdict();
+  await keysInWhatIsPublished();
+  await configPasswordsAndRootWebroot();
 
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log(failures ? failures + ' FAILED' : 'all passed');

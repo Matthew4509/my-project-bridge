@@ -164,15 +164,23 @@ const PAIRS = [
   ['ENV-002', 'src/pages/ai.astro', `<script>\nconst k = import.meta.env.PUBLIC_OPENAI_API_KEY;\n</script>\n`, `---\nconst k = import.meta.env.PUBLIC_OPENAI_API_KEY;\n---\n<p>{k.length}</p>\n`],
   // ENV-002 and ENV-004: a key by its generic name
   ['ENV-002', 'src/k1.js', `const a = import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY;\n`, `const a = import.meta.env.VITE_FIREBASE_API_KEY;\n`],
-  ['ENV-002', 'src/k2.js', `const a = import.meta.env.VITE_RAPIDAPI_KEY;\n`, `const a = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;\n`],
+  ['ENV-005', 'src/k2.js', `const a = import.meta.env.VITE_RAPIDAPI_KEY;\n`, `const a = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;\n`],
   ['ENV-002', 'src/k3.js', `const a = import.meta.env.VITE_STABILITY_API_KEY;\n`, `const a = import.meta.env.VITE_MAPBOX_TOKEN;\n`],
   ['ENV-002', 'src/k4.js', `const a = import.meta.env.VITE_ELEVEN_LABS_API_KEY;\n`, `const a = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;\n`],
-  ['ENV-002', 'src/k5.js', `const a = process.env.NEXT_PUBLIC_SANITY_TOKEN;\n`, `const a = process.env.NEXT_PUBLIC_POSTHOG_KEY;\n`],
-  ['ENV-002', 'src/k6.js', `const a = import.meta.env.VITE_DISCORD_WEBHOOK_URL;\n`, `const a = process.env.NEXT_PUBLIC_SENTRY_DSN;\n`],
+  ['ENV-005', 'src/k5.js', `const a = process.env.NEXT_PUBLIC_SANITY_TOKEN;\n`, `const a = process.env.NEXT_PUBLIC_POSTHOG_KEY;\n`],
+  ['ENV-005', 'src/k6.js', `const a = import.meta.env.VITE_DISCORD_WEBHOOK_URL;\n`, `const a = process.env.NEXT_PUBLIC_SENTRY_DSN;\n`],
   ['ENV-002', 'src/k7.js', `const a = import.meta.env.VITE_FIREBASE_SERVICE_ACCOUNT;\n`, `const a = process.env.NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY;\n`],
   ['ENV-002', 'src/k8.js', `const a = process.env.NEXT_PUBLIC_SENTRY_AUTH_TOKEN;\n`, `const a = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;\n`],
   ['ENV-002', 'src/k9.js', `const a = import.meta.env.VITE_MAPBOX_SECRET_TOKEN;\n`, `const a = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;\n`],
   ['ENV-004', '.env.preview', `VITE_RAPIDAPI_KEY=made-up-value\nNEXT_PUBLIC_SANITY_TOKEN=made-up-value\n`, `VITE_FIREBASE_API_KEY=made-up-value\nVITE_MAPBOX_TOKEN=made-up-value\nVITE_RAPIDAPI_KEY=your_key_here\n`],
+  // the money field on the callback's own item: the visitor's price, not one read from a table of the server's
+  ['PAY-006', 'api/cart-sum.js', `const { items } = req.body;\nconst amount = items.reduce((sum, i) => sum + i.price * i.quantity, 0);\nawait stripe.paymentIntents.create({ amount, currency: 'usd' });\n`, `const { items } = req.body;\nconst amount = items.reduce((sum, i) => sum + PRODUCTS[i.id].price * i.quantity, 0);\nawait stripe.paymentIntents.create({ amount, currency: 'usd' });\n`],
+  ['PAY-006', 'api/cart-sum2.js', `const body = await req.json();\nconst total = body.items.reduce(function (s, it) { return s + it.unitPrice; }, 0);\nawait stripe.paymentIntents.create({ amount: total, currency: 'usd' });\n`, `const body = await req.json();\nconst total = body.items.reduce(function (s, it) { return s + PRICES[it.sku].unitPrice; }, 0);\nawait stripe.paymentIntents.create({ amount: total, currency: 'usd' });\n`],
+  ['PAY-006', 'api/cart-sum3.js', `const { items } = req.body;\nconst amount = items.reduce((s, { price, qty }) => s + price * qty, 0);\nawait stripe.paymentIntents.create({ amount, currency: 'usd' });\n`, `const { items } = req.body;\nconst amount = items.reduce((s, { id, qty }) => s + PRODUCTS[id].amount * qty, 0);\nawait stripe.paymentIntents.create({ amount, currency: 'usd' });\n`],
+  // a key known only by its usual ending: Medium, and worded so a beginner can judge it
+  ['ENV-005', 'src/m1.js', `const a = import.meta.env.VITE_TMDB_API_KEY;\n`, `const a = import.meta.env.VITE_API_URL;\n`],
+  ['ENV-005', 'src/m2.js', `const a = process.env.NEXT_PUBLIC_GIPHY_API_KEY;\nconst b = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;\n`, `const a = process.env.NEXT_PUBLIC_SITE_URL;\n`],
+  ['ENV-001', 'e/.env', `VITE_TMDB_API_KEY=${['sk', 'live', 'Q3x9Lm2Vb7Tn4Rk8Wd5Hj6Zp'].join('_')}\n`, `VITE_TMDB_API_KEY=made-up-value\n`.replace('VITE_TMDB_API_KEY', 'VITE_API_URL')],
   // LOG-001: the settings, a whole login body, whole headers
   ['LOG-001', 'l/e1.js', `console.log('OpenAI key:', process.env.OPENAI_API_KEY);\n`, `console.log('OpenAI key set:', !!process.env.OPENAI_API_KEY);\n`],
   ['LOG-001', 'l/e2.js', `console.log('JWT_SECRET:', process.env.JWT_SECRET);\n`, `console.log('Site:', process.env.SITE_URL);\n`],
@@ -292,6 +300,27 @@ async function main() {
   w('loud/l-router/src/app/layout.tsx', LAYOUT);
   w('loud/l-router/src/components/Stats.tsx', SERVER_PART);
   w('loud/l-router/src/components/Panel.tsx', `'use client';\nimport { Stats } from './Stats';\nexport const Panel = () => <Stats />;\n`);
+  // Keys many services mean for browsers: never rated High, in code or in .env.
+  w('loud/l-design/src/design.js', `const a = [import.meta.env.VITE_TMDB_API_KEY, import.meta.env.VITE_OPENWEATHER_API_KEY, process.env.NEXT_PUBLIC_GIPHY_API_KEY, process.env.NEXT_PUBLIC_STREAM_API_KEY, process.env.NEXT_PUBLIC_GOOGLE_API_KEY, process.env.EXPO_PUBLIC_REVENUECAT_API_KEY];\n`);
+  w('loud/l-design/.env', `VITE_TMDB_API_KEY=made-up-value\nNEXT_PUBLIC_GIPHY_API_KEY=made-up-value\nEXPO_PUBLIC_REVENUECAT_API_KEY=made-up-value\n`);
+  // A shared lib file is browser code when a client file imports it; a file of the same name elsewhere is not it.
+  const FB_ADMIN = `import admin from 'firebase-admin';\nimport key from './serviceAccountKey.json';\nadmin.initializeApp({ credential: admin.credential.cert(key) });\nexport default admin;\n`;
+  w('loud/l-admin/lib/firebaseAdmin.ts', FB_ADMIN);
+  w('loud/l-admin/components/Panel.tsx', `'use client';\nimport admin from '@/lib/firebaseAdmin';\nexport const Panel = () => <p>{admin.name}</p>;\n`);
+  w('loud/l-admin2/lib/firebaseAdmin.ts', FB_ADMIN);
+  w('loud/l-admin2/widgets/Panel.tsx', `'use client';\nimport admin from '../lib/firebaseAdmin';\nexport const Panel = () => <p>{admin.name}</p>;\n`);
+  w('quiet/q-admin/lib/firebaseAdmin.ts', FB_ADMIN);
+  w('quiet/q-admin/app/api/x/route.ts', `import admin from '@/lib/firebaseAdmin';\nexport async function GET() { return Response.json(admin.name); }\n`);
+  w('quiet/q-admin/lib/supabase/admin.ts', `export const admin = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY);\n`);
+  w('quiet/q-admin/components/admin.tsx', `export const Admin = () => <p>Admin</p>;\n`);
+  w('quiet/q-admin/components/Panel.tsx', `'use client';\nimport { Admin } from './admin';\nexport const Panel = () => <Admin />;\n`);
+  // A plain Vite app sends all of src/ to the browser; SvelteKit runs vite too, and its src/lib may be server code.
+  w('loud/l-vite/vite.config.js', `export default {};\n`);
+  w('loud/l-vite/index.html', `<!doctype html><title>x</title>\n`);
+  w('loud/l-vite/src/firebase.js', `import admin from 'firebase-admin';\nexport default admin;\n`);
+  w('quiet/q-svelte/vite.config.js', `export default {};\n`);
+  w('quiet/q-svelte/svelte.config.js', `export default {};\n`);
+  w('quiet/q-svelte/src/lib/firebase.js', `import admin from 'firebase-admin';\nexport default admin;\n`);
   const loud = await runAudit(path.join(tmp, 'loud'), null, { root: false });
   const quiet = await runAudit(path.join(tmp, 'quiet'), null, { root: false });
   const at = (r, id, n, file) => r.findings.some(f => f.rule === id && f.where.startsWith('c' + n + '/' + file));
@@ -307,6 +336,23 @@ async function main() {
     check(id + ' fires on a component a client file imports (app/ router)', () => assert(loud.findings.some(f => f.rule === id && f.where.startsWith('l-router/src/components/Stats.tsx')), 'not found'));
     check(id + ' stays quiet on a server component (app/ router)', () => assert(!quiet.findings.some(f => f.rule === id && f.where.startsWith('q-router/')), 'flagged'));
   }
+  for (const [id, where] of [['KEY-003', 'l-admin/lib/firebaseAdmin.ts'], ['KEY-004', 'l-admin/lib/firebaseAdmin.ts'], ['KEY-003', 'l-admin2/lib/firebaseAdmin.ts'], ['KEY-003', 'l-vite/src/firebase.js']]) {
+    // the same line in the same file name elsewhere is merged into one finding, with its other places in also
+    check(id + ' fires on ' + where + ' (it reaches the browser)', () => assert(loud.findings.some(f => f.rule === id && [f.where, ...(f.also || [])].some(w => w.startsWith(where))), 'not found'));
+  }
+  check('keys many services mean for browsers are Medium, not High', () => {
+    const here = loud.findings.filter(f => f.where.startsWith('l-design/'));
+    assert(here.some(f => f.rule === 'ENV-005') && here.some(f => f.rule === 'ENV-004'), 'not found; got ' + here.map(f => f.rule).join(','));
+    const high = here.filter(f => f.sev === 'High' || f.sev === 'Critical');
+    assert(!high.length, high.map(f => f.rule + ' ' + f.where).join('; '));
+  });
+  for (const where of ['q-admin/', 'q-svelte/']) {
+    check('KEY rules stay quiet in ' + where, () => assert(!quiet.findings.some(f => /^KEY-/.test(f.rule) && f.where.startsWith(where)), quiet.findings.filter(f => /^KEY-/.test(f.rule)).map(f => f.where).join(', ')));
+  }
+  check('a key known only by its ending is Medium, in code and in .env', () => {
+    for (const id of ['ENV-004', 'ENV-005']) assert.strictEqual(RULES_MORE.find(r => r.id === id).sev, 'Medium', id);
+    for (const id of ['ENV-004', 'ENV-005']) assert(/anyone can read/i.test(RULES_MORE.find(r => r.id === id).title) && /server route/i.test(RULES_MORE.find(r => r.id === id).fix), id + ' wording');
+  });
   // Every new rule has a pair here; ids are unique across the whole list.
   check('every rule in rules-more.js has a pair', () => {
     const have = new Set(PAIRS.map(p => p[0]));

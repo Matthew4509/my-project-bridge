@@ -690,10 +690,170 @@ export default function Page() { return <Stats />; }
     { '.env.staging': `VITE_FIREBASE_API_KEY=made-up-public-value
 VITE_MAPBOX_TOKEN=made-up-public-value
 ` }),
-  R('ai-key-by-usual-ending-code', 'ENV-002', 'Browser code reads a service key known only by its usual ending', 'src/gen.js',
-    { 'src/gen.js': `export const key = import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY;
+  R('ai-key-by-usual-ending-code', 'ENV-005', 'Browser code reads a service key known only by its usual ending: Medium, the service decides if it is safe', 'src/gen.js',
+    { 'src/gen.js': `export const key = import.meta.env.VITE_TMDB_API_KEY;
 ` },
     { 'src/gen.js': `export const key = import.meta.env.VITE_FIREBASE_API_KEY;
+` }),
+  R('ai-ai-key-in-code', 'ENV-002', 'Browser code reads an AI service\'s key: named for spending money, so High', 'src/ask.js',
+    { 'src/ask.js': `export const key = import.meta.env.VITE_GOOGLE_GENERATIVE_AI_API_KEY;
+` },
+    { 'src/ask.js': `export const base = import.meta.env.VITE_API_URL;
+` }),
+  R('ai-pay-cart-sum-from-client', 'PAY-006', 'A total summed from the prices the visitor sent; the good copy sums the server\'s table', 'api/basket.js',
+    { 'api/basket.js': `const { items } = req.body;
+const amount = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+await stripe.paymentIntents.create({ amount, currency: 'usd' });
+` },
+    { 'api/basket.js': `const { items } = req.body;
+const amount = items.reduce((sum, i) => sum + PRODUCTS[i.id].price * i.quantity, 0);
+await stripe.paymentIntents.create({ amount, currency: 'usd' });
+` }),
+  X('ai-router-forgotten-mount', 'API-001', 'One protected mount does not protect the router mounted beside it', 'routes/users.js',
+    { 'server.js': `const express = require('express');
+const app = express();
+const notesRouter = require('./routes/notes');
+const usersRouter = require('./routes/users');
+app.use('/api/notes', protect, notesRouter);
+app.use('/api/users', usersRouter);
+`, 'routes/notes.js': `const router = require('express').Router();
+router.get('/', async (req, res) => res.json(await Note.find()));
+module.exports = router;
+`, 'routes/users.js': `const router = require('express').Router();
+router.get('/', async (req, res) => res.json(await User.find()));
+router.delete('/:id', async (req, res) => { await User.findByIdAndDelete(req.params.id); res.end(); });
+module.exports = router;
+` },
+    { 'server.js': `const express = require('express');
+const app = express();
+const notesRouter = require('./routes/notes');
+const usersRouter = require('./routes/users');
+app.use('/api/notes', protect, notesRouter);
+app.use('/api/users', protect, usersRouter);
+`, 'routes/notes.js': `const router = require('express').Router();
+router.get('/', async (req, res) => res.json(await Note.find()));
+module.exports = router;
+`, 'routes/users.js': `const router = require('express').Router();
+router.get('/', async (req, res) => res.json(await User.find()));
+router.delete('/:id', async (req, res) => { await User.findByIdAndDelete(req.params.id); res.end(); });
+module.exports = router;
+` }),
+  Q('quiet-ai-honest-mounts', '^(API|DEBUG)-', 'Checks that do cover: a mount with a guard, a guard on a covering path, a router\'s own guard, Fastify\'s hook; and the password reset routes',
+    { 'server.js': `const express = require('express');
+const app = express();
+const a = require('./routes/a');
+const b = require('./routes/b');
+const c = require('./routes/c');
+app.use('/api/a', auth, a);
+app.use('/api/secure', verifyToken);
+app.use('/api/secure/b', b);
+app.use('/api/c', c);
+`, 'routes/a.js': `const router = require('express').Router();
+router.get('/', async (req, res) => res.json(await User.find()));
+module.exports = router;
+`, 'routes/b.js': `const router = require('express').Router();
+router.get('/', async (req, res) => res.json(await User.find()));
+module.exports = router;
+`, 'routes/c.js': `const router = require('express').Router();
+router.use(auth);
+router.get('/', async (req, res) => res.json(await User.find()));
+module.exports = router;
+`, 'plugins/fast.js': `const fastify = require('fastify');
+const app = fastify();
+app.addHook('onRequest', app.authenticate);
+app.get('/customers', async () => Customer.find({}));
+`, 'app/api/reset-password/route.ts': `export async function POST(req) {
+  const { token, password } = await req.json();
+  await prisma.user.update({ where: { token }, data: { password: await hash(password) } });
+  return Response.json({ ok: true });
+}
+`, 'other/reset.js': `const express = require('express');
+const app = express();
+app.post('/api/reset-password', async (req, res) => {
+  await User.updateOne({ token: req.body.token }, { hash: await hash(req.body.pw) });
+  res.end();
+});
+` }),
+  X('ai-webhook-nuxt', 'PAY-007', 'A Nuxt payment webhook with no signature check', 'server/api/webhooks/stripe.post.ts',
+    { 'server/api/webhooks/stripe.post.ts': `export default defineEventHandler(async (event) => {
+  const body = await readBody(event);
+  await fulfil(body);
+  return { received: true };
+});
+` },
+    { 'server/api/webhooks/stripe.post.ts': `export default defineEventHandler(async (event) => {
+  const raw = await readRawBody(event);
+  const body = stripe.webhooks.construct` + `Event(raw, getHeader(event, 'stripe-signature'), process.env.STRIPE_WEBHOOK_SECRET);
+  if (body.livemode !== LIVE_MODE) return { ignored: true };
+  await fulfil(body);
+  return { received: true };
+});
+` }),
+  R('ai-firebase-admin-through-client', 'KEY-003', 'lib/firebaseAdmin.ts is browser code when a client component imports it', 'lib/firebaseAdmin.ts',
+    { 'lib/firebaseAdmin.ts': `import admin from 'firebase-admin';
+export default admin;
+`, 'components/Panel.tsx': `'use client';
+import admin from '@/lib/firebaseAdmin';
+export const Panel = () => <p>{admin.name}</p>;
+` },
+    { 'lib/firebaseAdmin.ts': `import admin from 'firebase-admin';
+export default admin;
+`, 'app/api/stats/route.ts': `import admin from '@/lib/firebaseAdmin';
+export async function GET() { return Response.json({ name: admin.name }); }
+` }),
+  R('ai-firebase-admin-in-vite-src', 'KEY-003', 'A plain Vite app sends all of src/ to the browser', 'src/firebase.js',
+    { 'vite.config.js': `export default {};
+`, 'index.html': `<!doctype html><title>Shop</title>
+`, 'src/firebase.js': `import admin from 'firebase-admin';
+export default admin;
+` },
+    { 'vite.config.js': `export default {};
+`, 'src/firebase.js': `import admin from 'firebase-admin';
+export default admin;
+` }),
+  X('ai-table-no-rls-drizzle', 'RLS-001', 'Drizzle\'s migrations in a project that uses Supabase', 'drizzle/0000_first.sql',
+    { 'src/db.js': `import { createClient } from '@supabase/supabase-js';
+export const sb = createClient(url, key);
+`, 'drizzle/0000_first.sql': `CREATE TABLE "notes" ("id" serial PRIMARY KEY);
+` },
+    { 'src/db.js': `import { createClient } from '@supabase/supabase-js';
+export const sb = createClient(url, key);
+`, 'drizzle/0000_first.sql': `CREATE TABLE "notes" ("id" serial PRIMARY KEY);
+ALTER TABLE "notes" ENABLE ROW LEVEL SECURITY;
+` }),
+  Q('quiet-ai-supabase-auth-only', '^RLS-', 'Another database\'s migrations, with Supabase there for sign-in only',
+    { 'src/auth.js': `import { createClient } from '@supabase/supabase-js';
+export const sb = createClient(url, key);
+export const me = () => sb.auth.getUser();
+`, 'db/migrations/001_init.sql': `create table notes (id int);
+` }),
+  X('ai-sveltekit-route-open', 'API-001', 'A SvelteKit route deletes orders with no check', 'src/routes/api/orders/+server.ts',
+    { 'src/routes/api/orders/+server.ts': `export async function DELETE() {
+  await prisma.order.deleteMany();
+  return new Response(null);
+}
+`, 'src/hooks.server.ts': `export const handle = async ({ event, resolve }) => {
+  event.locals.user = await readUser(event.cookies);
+  return resolve(event);
+};
+` },
+    { 'src/routes/api/orders/+server.ts': `export async function DELETE() {
+  await prisma.order.deleteMany();
+  return new Response(null);
+}
+`, 'src/hooks.server.ts': `export const handle = async ({ event, resolve }) => {
+  event.locals.user = await readUser(event.cookies);
+  if (event.url.pathname.startsWith('/api') && !event.locals.user) throw error(401, 'Please sign in first.');
+  return resolve(event);
+};
+` }),
+  X('ai-nuxt-route-open', 'API-001', 'A Nuxt route returns orders with no check; the good copy has server middleware', 'server/api/orders.get.ts',
+    { 'server/api/orders.get.ts': `export default defineEventHandler(async () => prisma.order.findMany());
+` },
+    { 'server/api/orders.get.ts': `export default defineEventHandler(async () => prisma.order.findMany());
+`, 'server/middleware/auth.ts': `export default defineEventHandler(async (event) => {
+  if (!event.context.user) throw createError({ statusCode: 401, message: 'Please sign in first.' });
+});
 ` }),
   Q('quiet-ai-public-keys', '^ENV-', 'Keys that are meant to be in the page',
     { '.env': `VITE_FIREBASE_API_KEY=made-up-public-value

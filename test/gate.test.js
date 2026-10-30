@@ -100,6 +100,66 @@ const globalHooks = (() => { try { return git(tmp, 'config', '--global', '--get'
       assert(!fs.existsSync(hook(c)));
     });
 
+    // The guard was turned on, then git was told to take hooks from elsewhere: every push goes unchecked with no word.
+    const store = require('../lib/audit-store');
+    fs.mkdirSync(path.join(process.env.BRIDGE_DATA, 'audits'), { recursive: true });
+    const proj = (dir, name) => ({ id: name, dir, folder: name, name, auditSkip: [], auditSkipOwn: [], auditInclude: [] });
+    const guardFinding = a => a.findings.find(f => f.rule === 'GATE-001');
+    const h1 = repo('h1');
+    gate.turnOn(h1);
+    git(h1, 'config', 'core.hooksPath', '.husky');
+    const ga = await store.auditProject(proj(h1, 'h1'), null);
+    check('guard on, hooks sent elsewhere: a High finding says pushes are not checked, and gives the line', () => {
+      const f = guardFinding(ga);
+      assert(f && f.sev === 'High' && f.where === '.git/hooks/pre-push' && /not being checked/.test(f.title), JSON.stringify(ga.findings.map(x => x.rule)));
+      assert(f.line && f.line.includes('gate.js') && /\.husky/.test(f.fix), JSON.stringify(f));
+      assert.strictEqual(ga.verdict, 'fix-first');
+    });
+    const gg = await gate.gateAudit(h1);
+    check('the guard\'s own audit does not add it (a push is not stopped over its own hook)', () => assert(!guardFinding(gg.a), JSON.stringify(gg.a.findings.map(x => x.rule))));
+    const h2 = repo('h2');
+    git(h2, 'config', 'core.hooksPath', '.husky');
+    const gb = await store.auditProject(proj(h2, 'h2'), null);
+    check('never turned on: quiet', () => assert(!guardFinding(gb)));
+    const h3 = repo('h3');
+    gate.turnOn(h3);
+    git(h3, 'config', 'core.hooksPath', '.husky');
+    const line3 = gate.guardState(h3).line;
+    fs.mkdirSync(path.join(h3, '.husky'), { recursive: true });
+    fs.writeFileSync(path.join(h3, '.husky', 'pre-push'), line3 + ' || exit 1\n');
+    const gc = await store.auditProject(proj(h3, 'h3'), null);
+    check('.husky/pre-push already holds the line: quiet', () => assert(!guardFinding(gc), JSON.stringify(gc.findings.map(x => x.rule))));
+    const h4 = repo('h4');
+    gate.turnOn(h4);
+    git(h4, 'config', 'core.hooksPath', '.husky/_');
+    fs.mkdirSync(path.join(h4, '.husky', '_'), { recursive: true });
+    fs.writeFileSync(path.join(h4, '.husky', 'pre-push'), line3 + ' || exit 1\n');
+    const gd = await store.auditProject(proj(h4, 'h4'), null);
+    check('newer Husky (.husky/_ runs .husky/pre-push) with the line: quiet', () => assert(!guardFinding(gd), JSON.stringify(gd.findings.map(x => x.rule))));
+    const h5 = repo('h5');
+    gate.turnOn(h5);
+    const ge = await store.auditProject(proj(h5, 'h5'), null);
+    check('guard on and running: quiet', () => assert(!guardFinding(ge)));
+    const gj = await store.auditProject({ ...proj(h1, 'h1') }, null);
+    const j1 = guardFinding(gj);
+    const stateMod = require('../lib/state');
+    check('it can be judged: the finding has a fingerprint', () => assert(j1 && j1.fp));
+
+    // A project's own project.json cannot leave anything out of what a push is held to.
+    const liveKey = 'const k = "' + 'sk_' + 'live_' + 'Q3x9Lm2Vb7Tn4Rk8Wd5Hj6Zp' + '";\n';
+    const h6 = repo('h6', { 'index.js': 'let a = 1;\n', 'src/pay.js': liveKey, 'project.json': JSON.stringify({ auditSkip: ['src'] }) });
+    const realList = stateMod.refreshProjects;
+    stateMod.refreshProjects = () => [{ ...proj(h6, 'h6'), auditSkip: ['src'], auditSkipOwn: ['src'] }];
+    const gs = await gate.gateAudit(h6);
+    stateMod.refreshProjects = () => [{ ...proj(h6, 'h6'), auditSkip: ['src'], auditSkipOwn: [] }];
+    const gp2 = await gate.gateAudit(h6);
+    stateMod.refreshProjects = realList;
+    check('the guard ignores a skip the project asks for itself: the key in it stops the push', () => {
+      assert(gs.a.findings.some(f => f.rule === 'SEC-003' && f.where === 'src/pay.js:1') && gs.ready === false, JSON.stringify(gs.a.findings.map(f => f.rule + '@' + f.where)));
+      assert(!gs.a.notRead.some(n => /project\.json/.test(n)), JSON.stringify(gs.a.notRead));
+    });
+    check('a skip the person set in the Bridge stays deliberate for the code rules', () => assert(!gp2.a.notRead.some(n => /project\.json/.test(n)), JSON.stringify(gp2.a.notRead)));
+
     // A real push through the hook, to a bare repository beside it.
     const remote = path.join(tmp, 'remote.git');
     execFileSync('git', ['init', '-q', '--bare', remote], { windowsHide: true });

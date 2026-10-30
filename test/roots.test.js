@@ -63,6 +63,30 @@ async function main() {
   const I = findRoots(path.join(tmp, 'named'), { include: ['old/'] });
   check('auditInclude brings a folder back', () => assert(!rels(I).includes('old') && rels(I).includes('site-v1.2.3')));
 
+  // ---- 3b. a name alone is not a copy: "-fixes", "old-" and "-old" need the folder they would be a copy of ----
+  for (const live of ['css-fixes', 'app-fixes', 'old-posts', 'posts-old']) w('alone/' + live + '/index.php', FAULT);
+  w('alone/index.php', '<?php echo "home";\n');
+  const AL = findRoots(path.join(tmp, 'alone'));
+  check('css-fixes/, app-fixes/, old-posts/ and posts-old/ with nothing they copy are part of the project', () => assert.deepStrictEqual(rels(AL), [], rels(AL).join(', ')));
+  w('pairs/index.php', '<?php echo "home";\n');
+  for (const n of ['my-app', 'my-app-fixes', 'shop', 'shop-old', 'blog', 'old-blog']) w('pairs/' + n + '/index.php', FAULT);
+  const PR = findRoots(path.join(tmp, 'pairs'));
+  check('beside the folder they copy they are copies: my-app-fixes/, shop-old/, old-blog/', () => assert.deepStrictEqual(rels(PR), ['my-app-fixes', 'old-blog', 'shop-old'], rels(PR).join(', ')));
+  w('bare/index.php', '<?php echo "home";\n');
+  for (const n of ['old', 'backup', 'archive']) w('bare/' + n + '/index.php', FAULT);
+  const BA = findRoots(path.join(tmp, 'bare'));
+  check('bare old/, backup/ and archive/ stay copies', () => assert.deepStrictEqual(rels(BA), ['archive', 'backup', 'old'], rels(BA).join(', ')));
+  // A folder taken as a copy that git would publish goes up with the project: not a clean read, and its keys are read.
+  const KEY = 'sk_' + 'live_' + 'Q3x9Lm2Vb7Tn4Rk8Wd5Hj6Zp';
+  w('tracked/index.php', '<?php echo "home";\n'); w('tracked/archive/pay.js', 'const k = "' + KEY + '";\n'); w('tracked/old/ok.txt', 'x\n');
+  const gitT = (...args) => execFileSync('git', ['-C', path.join(tmp, 'tracked'), ...args], { stdio: 'ignore', windowsHide: true });
+  gitT('init', '-q'); gitT('config', 'user.email', '1+robin@users.noreply.github.com'); gitT('config', 'user.name', 'Robin'); gitT('config', 'commit.gpgsign', 'false'); gitT('add', '-A'); gitT('commit', '-qm', 'first');
+  const TA = await runAudit(path.join(tmp, 'tracked'), null, { disclosure: { details: [], others: [], own: ['tracked'] } });
+  check('a tracked archive/ counts as not read, and the key in it is found', () => {
+    assert(TA.partly && TA.notRead.includes('Folders taken as old copies, read for keys only: archive, old'), JSON.stringify(TA.notRead));
+    assert(TA.findings.some(f => f.rule === 'SEC-003' && f.where === 'archive/pay.js:1'), TA.findings.map(f => f.rule + '@' + f.where).join(', '));
+  });
+
   // ---- 4. a folder whose only code is an old copy keeps it ----
   w('only/HANDOFF.md', '# notes\n'); w('only/original-2026-01-31/app.js', 'var x = 1;\n');
   const O = findRoots(path.join(tmp, 'only'));

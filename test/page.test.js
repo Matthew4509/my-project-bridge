@@ -126,6 +126,12 @@ check('the audit window: an old saved audit, and one read whole, show the green 
     assert(/✓ Passed/.test(text) && /Passed every rule/.test(text) && oklike(nodes).length === 1 && !/◐/.test(text), text);
   }
 });
+check('the audit window: a finding that carries a line to add shows it, and the copied list does not carry it', () => {
+  const f = { rule: 'GATE-001', sev: 'High', title: 't', area: 'a', where: 'w', fix: 'f', line: '"node" "tools/gate.js" "dir"' };
+  const { text } = audit({ counts: { High: 1 }, findings: [f] });
+  assert(text.includes(f.line), text);
+  assert(!/f\.line/.test(showSrc[0].match(/function faultsText[\s\S]*?\n\}/)[0]), 'not in the text that gets pasted');
+});
 check('the audit summary the list reads carries partly', () => {
   assert(/function auditSummary\(a\) \{[^\n]*partly: a\.partly === true/.test(fs.readFileSync(path.join(__dirname, '..', 'lib', 'audit-store.js'), 'utf8')));
 });

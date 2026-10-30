@@ -111,6 +111,7 @@ function showAudit(r, a, lead) {
   const item = f => h('div', { class: 'check' }, h('span', { class: 'sev ' + (SEV[f.sev] || SEV.Medium).cls }, (SEV[f.sev] || SEV.Medium).mark),
     h('span', { class: 'what' }, f.title + ' (' + f.area + ')', f.knownAs ? h('b', null, ' · already known as ' + f.knownAs) : null,
       f.check && records[f.rule] ? h('b', null, ' · check this one: the rule was ' + recText(records[f.rule])) : null,
+      f.line ? h('span', { class: 'where' }, f.line) : null,
       h('span', { class: 'where' }, f.where + (f.also && f.also.length ? ' (also ' + f.also.length + ' other place' + (f.also.length > 1 ? 's' : '') + ': ' + f.also.slice(0, 3).join('; ') + (f.also.length > 3 ? '…' : '') + ')' : '') + ' · ' + f.rule + (f.evidence ? ' · seen: ' + f.evidence : '') + ' · ' + f.fix),
       h('button', { class: 'linkbtn', type: 'button', onclick: () => judgeDialog(r, a, f) }, 'Not a fault…')));
   const recRows = Object.entries(records).sort((x, y) => y[1].false - x[1].false);
