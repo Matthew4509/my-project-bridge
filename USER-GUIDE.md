@@ -2,7 +2,7 @@
 
 Everything in detail. The short version is in [README.md](README.md).
 
-**Contents:** [What you need](#what-you-need) · [Install and start](#install-and-start) · [Your first five minutes](#your-first-five-minutes) · [The window](#the-window) · [Demo](#demo) · [Where start commands come from](#where-start-commands-come-from) · [Names and descriptions](#names-and-descriptions-projectsjson) · [The built-in audit](#the-built-in-audit) · [Safety and privacy](#safety-and-privacy) · [If something goes wrong](#if-something-goes-wrong) · [Questions](#questions) · [Report a problem](#report-a-problem) · [What's new](#whats-new-in-0106)
+**Contents:** [What you need](#what-you-need) · [Install and start](#install-and-start) · [Your first five minutes](#your-first-five-minutes) · [The window](#the-window) · [Demo](#demo) · [Where start commands come from](#where-start-commands-come-from) · [Names and descriptions](#names-and-descriptions-projectsjson) · [The built-in audit](#the-built-in-audit) · [Safety and privacy](#safety-and-privacy) · [If something goes wrong](#if-something-goes-wrong) · [Questions](#questions) · [Report a problem](#report-a-problem) · [What's new](#whats-new-in-0113)
 
 ## What you need
 
@@ -517,7 +517,7 @@ version from **About**. Please leave out your own folder paths, project names an
 the audit show labels instead of your private details, but they do name the project and its files: read the text
 before you paste it.
 
-## What's new (not released yet)
+## What's new in 0.1.13
 
 - **Publish guard** (a project's … menu): stops a `git push` while the audit says "fix first", from any tool, and
   says what to fix. **Ready to publish?** runs the same check on demand.
