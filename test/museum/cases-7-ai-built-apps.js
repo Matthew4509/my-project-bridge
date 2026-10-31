@@ -934,4 +934,272 @@ export const db = createClient(url, key);
 `, 'database.sql': `create table notes (id uuid primary key);
 alter table notes enable row level security;
 ` }),
+  // ---- open routes behind an open read, sign-in middleware that protects less than it seems, Firebase's test mode ----
+  X('ai-crud-get-first', 'API-001', 'An open GET on a table of no one in particular comes first; the open DELETE after it is the worst of the file', 'srv.js',
+    { 'srv.js': `const express = require('express');
+const app = express();
+app.get('/api/todos', async (req, res) => res.json(await prisma.todo.findMany()));
+app.delete('/api/todos/:id', async (req, res) => {
+  await prisma.todo.delete({ where: { id: req.params.id } });
+  res.end();
+});
+` },
+    { 'srv.js': `const express = require('express');
+const app = express();
+app.get('/api/todos', async (req, res) => res.json(await prisma.todo.findMany()));
+app.delete('/api/todos/:id', requireUser, async (req, res) => {
+  await prisma.todo.delete({ where: { id: req.params.id } });
+  res.end();
+});
+` }),
+  X('ai-clerk-quickstart-open-api', 'API-001', 'Clerk\'s quickstart protects /dashboard; its matcher only says the middleware runs on /api', 'app/api/users/route.ts',
+    { 'app/api/users/route.ts': `export async function GET() { return Response.json(await prisma.user.findMany()); }
+export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }
+`, 'middleware.ts': `import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+const isProtectedRoute = createRouteMatcher(['/dashboard(.*)']);
+export default clerkMiddleware(async (auth, req) => {
+  if (isProtectedRoute(req)) await auth.protect();
+});
+export const config = { matcher: ['/(api|trpc)(.*)'] };
+` },
+    { 'app/api/users/route.ts': `export async function GET() { return Response.json(await prisma.user.findMany()); }
+export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }
+`, 'middleware.ts': `import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+const isPublicRoute = createRouteMatcher(['/sign-in(.*)']);
+export default clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) await auth.protect();
+});
+export const config = { matcher: ['/(api|trpc)(.*)'] };
+` }),
+  X('ai-inline-server-action', 'API-001', 'A server action written inside a page wipes a table with nothing checking who posted', 'app/people/page.tsx',
+    { 'app/people/page.tsx': `export default function Page() {
+  async function wipe() {
+    'use server';
+    await prisma.user.deleteMany();
+  }
+  return <form action={wipe}><button>Wipe</button></form>;
+}
+` },
+    { 'app/people/page.tsx': `export default function Page() {
+  async function wipe() {
+    'use server';
+    const session = await auth();
+    if (!session) return;
+    await prisma.user.deleteMany();
+  }
+  return <form action={wipe}><button>Wipe</button></form>;
+}
+` }),
+  X('ai-nextauth-bare-middleware', 'API-001', 'NextAuth\'s auth is handed over as the middleware with no authorized callback, so it turns no one away', 'app/api/notes/route.ts',
+    { 'auth.ts': `import NextAuth from 'next-auth';
+export const { handlers, auth } = NextAuth({ providers: [] });
+`, 'middleware.ts': `export { auth as middleware } from '@/auth';
+`, 'app/api/notes/route.ts': `export async function DELETE() {
+  await prisma.note.deleteMany();
+  return Response.json({});
+}
+` },
+    { 'auth.ts': `import NextAuth from 'next-auth';
+export const { handlers, auth } = NextAuth({ providers: [], callbacks: { authorized: ({ auth }) => !!auth } });
+`, 'middleware.ts': `export { auth as middleware } from '@/auth';
+`, 'app/api/notes/route.ts': `export async function DELETE() {
+  await prisma.note.deleteMany();
+  return Response.json({});
+}
+` }),
+  X('ai-firestore-test-mode', 'FIRE-001', 'firestore.rules still says allow read, write: if true', 'firestore.rules',
+    { 'src/fb.js': `import { initializeApp } from 'firebase/app';
+export const app = initializeApp(config);
+`, 'firestore.rules': `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+` },
+    { 'src/fb.js': `import { initializeApp } from 'firebase/app';
+export const app = initializeApp(config);
+`, 'firestore.rules': `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+` }),
+  X('ai-storage-rules-open', 'FIRE-001', 'storage.rules lets anyone write and overwrite every file', 'storage.rules',
+    { 'firebase.json': `{ "storage": { "rules": "storage.rules" } }
+`, 'storage.rules': `service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}
+` },
+    { 'firebase.json': `{ "storage": { "rules": "storage.rules" } }
+`, 'storage.rules': `service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
+` }),
+  X('ai-realtime-rules-open', 'FIRE-001', 'database.rules.json has .read and .write set to true', 'database.rules.json',
+    { 'package.json': `{ "dependencies": { "firebase": "10.0.0" } }
+`, 'database.rules.json': `{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}
+` },
+    { 'package.json': `{ "dependencies": { "firebase": "10.0.0" } }
+`, 'database.rules.json': `{
+  "rules": {
+    ".read": "auth != null",
+    ".write": "auth != null"
+  }
+}
+` }),
+  R('ai-pay-hono-body', 'PAY-006', 'A Hono route charges the amount it read from c.req.json()', 'srv/pay.ts',
+    { 'srv/pay.ts': `app.post('/pay', async (c) => {
+  const { amount } = await c.req.json();
+  await stripe.paymentIntents.create({ amount, currency: 'usd' });
+  return c.json({});
+});
+` },
+    { 'srv/pay.ts': `app.post('/pay', async (c) => {
+  const { itemId } = await c.req.json();
+  await stripe.paymentIntents.create({ amount: priceOf(itemId), currency: 'usd' });
+  return c.json({});
+});
+` }),
+  R('ai-pay-remix-action', 'PAY-006', 'A Remix route\'s action in a .tsx file charges what the form sent', 'app/routes/pay.tsx',
+    { 'app/routes/pay.tsx': `export async function action({ request }) {
+  const form = await request.formData();
+  await stripe.paymentIntents.create({ amount: Number(form.get('amount')), currency: 'usd' });
+  return null;
+}
+export default function Pay() { return <form method="post" />; }
+` },
+    { 'app/routes/pay.tsx': `export async function action({ request }) {
+  const form = await request.formData();
+  await stripe.paymentIntents.create({ amount: priceOf(form.get('id')), currency: 'usd' });
+  return null;
+}
+export default function Pay() { return <form method="post" />; }
+` }),
+  R('ai-cors-hand-set', 'CORS-003', 'Headers set by hand send the visitor\'s own Origin back, with credentials allowed', 'api/open.js',
+    { 'api/open.js': `app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
+` },
+    { 'api/open.js': `app.use((req, res, next) => {
+  if (ALLOWED.includes(req.headers.origin)) res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  next();
+});
+` }),
+  R('ai-cors-hono-echo', 'CORS-003', 'Hono\'s cors hands back whichever site asked, with credentials on', 'srv/cors.ts',
+    { 'srv/cors.ts': `import { cors } from 'hono/cors';
+app.use('*', cors({ origin: (origin) => origin, credentials: true }));
+` },
+    { 'srv/cors.ts': `import { cors } from 'hono/cors';
+app.use('*', cors({ origin: (origin) => (LIST.includes(origin) ? origin : null), credentials: true }));
+` }),
+  R('ai-vite-loadenv-all', 'ENV-003', 'vite define hands the browser every setting, through loadEnv with an empty prefix', 'vite.config.ts',
+    { 'vite.config.ts': `export default ({ mode }) => ({ define: {
+  'process.env': JSON.stringify(loadEnv(mode, process.cwd(), '')),
+} });
+` },
+    { 'vite.config.ts': `export default ({ mode }) => ({ define: {
+  'process.env': JSON.stringify(loadEnv(mode, process.cwd(), 'VITE_')),
+} });
+` }),
+  Q('ai-quiet-hono-star', '^API-00[12]$', 'Hono: a check on /api/* covers the routes under it', {
+    'srv.ts': `import { Hono } from 'hono';
+const app = new Hono();
+app.use('/api/*', jwt({ secret }));
+app.post('/api/todos', async (c) => {
+  await db.insert(todos).values(await c.req.json());
+  return c.json({});
+});
+` }),
+  Q('ai-quiet-express-own-guard', '^API-00[12]$', 'Express: the project\'s own key check on the .use line, and a mount behind isAdmin', {
+    'server.js': `const express = require('express');
+const app = express();
+const adminRouter = require('./routes/admin');
+function checkApiKey(req, res, next) {
+  if (req.headers['x-api-key'] !== process.env.API_KEY) return res.status(401).json({ error: 'That key is not right.' });
+  next();
+}
+app.use('/api', checkApiKey);
+app.use('/admin', isAdmin, adminRouter);
+app.post('/api/todos', async (req, res) => {
+  await prisma.todo.create({ data: req.body });
+  res.end();
+});
+`, 'routes/admin.js': `const router = require('express').Router();
+router.delete('/users/:id', async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.end();
+});
+module.exports = router;
+` }),
+  Q('ai-quiet-clerk-protects-all', '^API-00[12]$', 'Clerk: a check for every address, and a list of public ones with this route not among them', {
+    'app/api/users/route.ts': `export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }
+`, 'middleware.ts': `import { clerkMiddleware } from '@clerk/nextjs/server';
+export default clerkMiddleware(async (auth) => { await auth.protect(); });
+export const config = { matcher: ['/(api|trpc)(.*)'] };
+` }),
+  Q('ai-quiet-clerk-route-checks', '^API-00[12]$', 'Clerk: the route checks for itself, whatever the middleware does', {
+    'app/api/users/route.ts': `import { auth } from '@clerk/nextjs/server';
+export async function DELETE() {
+  const { userId } = await auth();
+  if (!userId) return new Response('Please sign in first.', { status: 401 });
+  await prisma.user.deleteMany();
+  return Response.json({});
+}
+`, 'middleware.ts': `import { clerkMiddleware } from '@clerk/nextjs/server';
+export default clerkMiddleware();
+` }),
+  Q('ai-quiet-firebase-public-read', '^FIRE-001$', 'Firebase: a public collection anyone may read, writes guarded; a form anyone may add to', {
+    'firebase.json': `{}
+`, 'firestore.rules': `service cloud.firestore {
+  match /databases/{database}/documents {
+    match /posts/{id} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /enquiries/{id} {
+      allow create: if true;
+    }
+  }
+}
+` }),
+  Q('ai-quiet-no-firebase', '^FIRE-001$', 'A rules file left in a project with no Firebase in it', {
+    'src/db.js': `import pg from 'pg';
+export const db = new pg.Pool();
+`, 'firestore.rules': `match /{document=**} {
+  allow read, write: if true;
+}
+` }),
+  Q('ai-quiet-pay-browser-component', '^PAY-006$', 'A browser component reads an amount from its form; no server code here takes it', {
+    'components/Pay.tsx': `export function Pay() {
+  const submit = async (e) => {
+    const formData = new FormData(e.target);
+    const amount = Number(formData.get('amount'));
+    await paypal.pay({ amount, currency: 'usd' });
+  };
+  return <form onSubmit={submit} />;
+}
+` }),
 ];

@@ -271,7 +271,23 @@
   "ai-firebase-admin-in-vite-src",
   "ai-table-no-rls-drizzle",
   "ai-sveltekit-route-open",
-  "ai-nuxt-route-open"
+  "ai-nuxt-route-open",
+  "agent-web-client-run",
+  "agent-web-client-save-run",
+  "agent-named-data-file",
+  "agent-similar-service",
+  "ai-crud-get-first",
+  "ai-clerk-quickstart-open-api",
+  "ai-inline-server-action",
+  "ai-nextauth-bare-middleware",
+  "ai-firestore-test-mode",
+  "ai-storage-rules-open",
+  "ai-realtime-rules-open",
+  "ai-pay-hono-body",
+  "ai-pay-remix-action",
+  "ai-cors-hand-set",
+  "ai-cors-hono-echo",
+  "ai-vite-loadenv-all"
  ],
  "knownFalseFlags": []
 }

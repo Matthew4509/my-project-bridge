@@ -284,7 +284,7 @@ async function keysInWhatIsPublished() {
   check('a key inside one long minified line is found through the slices', () => assert(atC('dist/long.js').some(f => f.rule === 'SEC-003'), C.findings.map(x => x.rule + '@' + x.where).join(', ')));
   check('a password example in a markdown note is not a finding', () => assert(!atC('docs.md').length, JSON.stringify(atC('docs.md'))));
   check('a file git ignores is not read for this', () => assert(!atC('secret.log').length));
-  check('a zip\'s entries are not read for this', () => assert(!C.findings.some(f => f.area === 'secrets' && / > /.test(f.where)), C.findings.map(x => x.where).join(', ')));
+  check('a zip\'s entries are read for this, named by the zip and the entry', () => assert(C.findings.some(f => f.rule === 'SEC-003' && f.where === 'rel.zip > inner.csv:1'), C.findings.map(x => x.where).join(', ')));
   const seen = atC('seen.csv').find(f => f.rule === 'SEC-005');
   const CJ = await runAudit(cd, null, { disclosure: ctx('care'), judged: [{ id: 'j2', rule: 'SEC-005', file: 'seen.csv', fp: seen.fp, verdict: 'false', why: 'made-up', by: 'test' }] });
   check('a person\'s "not a fault" sets it aside', () => assert(!CJ.findings.some(f => f.where.startsWith('seen.csv')) && CJ.setAside.some(f => f.where.startsWith('seen.csv'))));
@@ -337,8 +337,16 @@ async function configPasswordsAndRootWebroot() {
     'config.properties': 'spring.datasource.password=' + PW,
     'app.ini': '[db]\npassword = ' + PW + ' ; the shop',
     'settings.yml': 'db:\n  password: ' + PW + '   # the shop',
-    'compose.yaml': 'env:\n  - DB_PASSWORD=' + PW,
+    'stack.yaml': 'env:\n  - DB_PASSWORD=' + PW,
     'appsettings.json': '{ "Default": "Server=db;Database=shop;User Id=sa;Password=' + PW + ';" }',
+    // The word postgres in the name or the user is no placeholder: only the whole value being that word is.
+    'prod.yml': 'db:\n  POSTGRES_PASSWORD: ' + PW,
+    'pg.json': '{ "Default": "Host=db;Database=shop;Username=postgres;Password=' + PW + ';" }',
+    'postgres123.yml': 'password: postgres123',
+    // Only a file called compose is taken for Docker's, and a production settings file is no dev file.
+    'decompose.yml': 'password: ' + PW,
+    'composer.yml': 'password: ' + PW,
+    'appsettings.Production.json': '{ "Default": "Server=db;Database=shop;User Id=sa;Password=' + PW + ';" }',
   };
   const QUIET = {
     'wp-config-sample.php': "<?php define( 'DB_PASSWORD', 'password_here' );",
@@ -356,6 +364,15 @@ async function configPasswordsAndRootWebroot() {
     'k.json': '{ "Default": "Server=db;Database=shop;User Id=sa;Password=%(db_password)s;" }',
     'docker-compose.yml': 'env:\n  - DB_PASSWORD=' + PW,
     'l.ini': '# password = ' + PW,
+    // Stock dev settings: Docker's current default name, a Rails default, the .NET sample.
+    'compose.yaml': 'services:\n  db:\n    environment:\n      POSTGRES_PASSWORD: postgres',
+    'compose.override.yml': 'env:\n  - DB_PASSWORD=' + PW,
+    'config/database.yml': 'default:\n  password: postgres',
+    'appsettings.Development.json': '{ "Default": "Server=db;Database=shop;User Id=sa;Password=yourStrong(!)Password;" }',
+    'appsettings.Development.config': '<add value="Server=db;Database=shop;User Id=sa;Password=' + PW + ';" />',
+    'settings.development.yml': 'password: ' + PW,
+    'm.json': '{ "Default": "Server=db;Database=shop;User Id=sa;Password=yourStrong(!)Password;" }',
+    'n.json': '{ "Default": "Host=db;Database=shop;Username=postgres;Password=postgres;" }',
   };
   for (const [f, t] of Object.entries({ ...LOUD, ...QUIET })) w('pw/' + f, t);
   const A = await runAudit(path.join(tmp, 'pw'), null, {});
@@ -382,6 +399,96 @@ async function configPasswordsAndRootWebroot() {
   w('rootgit/index.html', '<p>x</p>');
   const RG = await runAudit(mkRepo('rootgit'), null, {});
   check('a site\'s own .git at the top is not called a downloadable folder', () => assert(!RG.findings.some(f => f.rule === 'EXP-005'), JSON.stringify(RG.findings.map(f => f.rule))));
+
+  // A settings template at the top of a site is shown on purpose; a real .env there is not, and a real key is a key anywhere.
+  const rndKey = () => require('crypto').randomBytes(48).toString('base64').replace(/[^A-Za-z0-9]/g, '').slice(0, 24);
+  for (const name of ['.env.example', '.env.sample', '.env.template', '.env.dist', '.env.defaults']) {
+    const d = 'envt' + name.replace(/\W/g, '-');
+    w(d + '/index.php', '<?php echo 1;'); w(d + '/' + name, 'DB_PASSWORD=yourpassword\n');
+    const r = await runAudit(path.join(tmp, d), null, {});
+    check(name + ' at the top of a site does not stop the push', () => assert(!r.findings.some(f => f.rule === 'EXP-001') && r.verdict !== 'fix-first', r.findings.map(f => f.rule + '@' + f.where).join(', ')));
+    w(d + '/' + name, 'STRIPE=' + 'sk_' + 'live_' + rndKey() + '\n');
+    const k = await runAudit(path.join(tmp, d), null, {});
+    check('a real key in ' + name + ' is still found', () => assert(k.findings.some(f => f.rule === 'SEC-003' && f.where === name + ':1'), k.findings.map(f => f.rule + '@' + f.where).join(', ')));
+  }
+  for (const name of ['.env', '.env.production', '.env.local', '.env.example.bak']) {
+    const d = 'envr' + name.replace(/\W/g, '-');
+    w(d + '/index.php', '<?php echo 1;'); w(d + '/' + name, 'A=1\n');
+    const r = await runAudit(path.join(tmp, d), null, {});
+    check(name + ' at the top of a site still fires', () => assert(r.findings.some(f => f.rule === 'EXP-001' && f.sev === 'Critical'), r.findings.map(f => f.rule + '@' + f.where).join(', ')));
+  }
+}
+
+// --- npm, GitLab and PuTTY keys, and key stores, in what would be published ---
+async function moreKeyKinds() {
+  const rnd = n => require('crypto').randomBytes(n * 2).toString('base64').replace(/[^A-Za-z0-9]/g, '').slice(0, n);
+  const b64 = n => require('crypto').randomBytes(n).toString('base64');
+  const ctx = own => ({ details: [], others: [], own: [own] });
+  const HEAD = 'PuTTY-User-' + 'Key-File-3: ssh-ed25519\nEncryption: none\nComment: a made-up key\n';
+  const PUB = () => 'Public-Lines: 2\n' + b64(48) + '\n' + b64(12) + '\n';
+  const PRIV = () => 'Private-' + 'Lines: 1\n' + b64(36) + '\nPrivate-MAC: ' + rnd(64) + '\n';
+  const npm = () => 'npm_' + rnd(36), gl = () => 'glpat-' + rnd(20);
+  w('kinds/.npmrc', '//registry.npmjs.org/:_authToken=' + npm() + '\n');
+  w('kinds/ci.txt', 'token: ' + gl() + '\n');
+  w('kinds/deploy.ppk', HEAD + PUB() + PRIV());
+  w('kinds/certs/site.pfx', Buffer.from([0x30, 0x82, 0, 1, 2, 3, 0, 0, 9]));
+  w('kinds/certs/site.p12', Buffer.from([0x30, 0x82, 0, 1, 2, 3, 0, 0, 9]));
+  w('kinds/android/release.JKS', Buffer.from([0xfe, 0xed, 0, 2, 0, 0, 0, 0, 9]));
+  w('kinds/tests/fixtures/made-up.pfx', Buffer.from([0x30, 0x82, 0, 1, 2, 3, 0, 0, 9]));
+  w('kinds/private/own.pfx', Buffer.from([0x30, 0x82, 0, 1, 2, 3, 0, 0, 9]));
+  w('kinds/.gitignore', 'private/\n');
+  const K = await runAudit(mkRepo('kinds'), null, { disclosure: ctx('kinds') });
+  const list = a => a.findings.map(f => f.rule + '@' + f.where).join(', ');
+  check('an npm token in a tracked .npmrc is found', () => assert(K.findings.some(f => f.rule === 'SEC-003' && f.sev === 'Critical' && f.where === '.npmrc:1'), list(K)));
+  check('a GitLab token is found', () => assert(K.findings.some(f => f.rule === 'SEC-003' && f.where === 'ci.txt:1'), list(K)));
+  check('a PuTTY private key is found', () => assert(K.findings.some(f => f.rule === 'SEC-001' && f.sev === 'Critical' && f.where === 'deploy.ppk:1'), list(K)));
+  for (const rel of ['certs/site.pfx', 'certs/site.p12', 'android/release.JKS']) check('a key store is named: ' + rel, () => {
+    const f = K.findings.find(x => x.rule === 'EXP-008' && (x.where === rel || (x.also || []).includes(rel)));
+    assert(f && f.sev === 'Medium', list(K));
+  });
+  check('a key store in a test folder, or one git ignores, is not named', () => assert(!K.findings.some(f => /made-up|own\.pfx/.test(f.where + (f.also || []).join())), list(K)));
+
+  w('kinds-quiet/.npmrc', '//registry.npmjs.org/:_authToken=${NPM_TOKEN}\n');
+  w('kinds-quiet/run.sh', 'echo "$npm_config_x $npm_package_name"\nnpm_config_cache_folder_for_the_build_of_this_project=1\n');
+  w('kinds-quiet/glpat.txt', 'token: ' + 'glpat-' + rep('x', 20) + '\ntoken: glpat-short\n');
+  w('kinds-quiet/npmlong.txt', 'not one: npm_' + rnd(37) + '\n');
+  w('kinds-quiet/public.ppk', HEAD + PUB());
+  w('kinds-quiet/doc.ppk', HEAD + PUB() + 'Private-' + 'Lines: 1\n<the private part goes here>\n');
+  const Q = await runAudit(mkRepo('kinds-quiet'), null, { disclosure: ctx('kinds-quiet') });
+  check('references, npm settings, placeholders and a public PuTTY block stay quiet', () => assert(!Q.findings.some(f => f.area === 'secrets'), list(Q)));
+
+  // Gone from the files, still in the history: SEC-012 knows these kinds too. Two PuTTY keys are told apart.
+  w('kinds-past/.npmrc', '//registry.npmjs.org/:_authToken=' + npm() + '\n');
+  w('kinds-past/old.ppk', HEAD + PUB() + PRIV());
+  w('kinds-past/keep.ppk', HEAD + PUB() + PRIV());
+  const pd = mkRepo('kinds-past');
+  fs.rmSync(path.join(pd, '.npmrc')); fs.rmSync(path.join(pd, 'old.ppk'));
+  const g = (...a) => require('child_process').execFileSync('git', ['-C', pd, ...a], { stdio: 'ignore', windowsHide: true });
+  g('add', '-A'); g('commit', '-qm', 'two');
+  const P = await runAudit(pd, null, { disclosure: ctx('kinds-past') });
+  check('an npm token taken out of the files is found in the history', () => assert(P.findings.some(f => f.rule === 'SEC-012' && f.where === 'git history: .npmrc:1'), list(P)));
+  check('a PuTTY key taken out is found in the history, though another of the same type stays', () => assert(P.findings.some(f => f.rule === 'SEC-012' && f.where === 'git history: old.ppk:1') && P.findings.some(f => f.rule === 'SEC-001' && f.where === 'keep.ppk:1'), list(P)));
+
+  // Over the code rules' size limit: the keys were read, and the note says the rest was not.
+  const padding = 'x = 1\n'.repeat(160000);
+  const bigKey = 'sk_' + 'live_' + rnd(24);
+  w('bigprops/index.js', 'let a = 1;\n'); w('bigprops/big.properties', padding + 'k=' + bigKey + '\n');
+  const B = await runAudit(mkRepo('bigprops'), null, { disclosure: ctx('bigprops') });
+  check('a key at the end of a file over the limit is found', () => assert(B.findings.some(f => f.rule === 'SEC-003' && f.where === 'big.properties:160001'), list(B)));
+  check('that file is read for keys only, said once, and is not "not read"', () => {
+    assert(!B.notes.some(n => /was not read/.test(n) || /by hand/.test(n) && !/keys only/.test(n)), B.notes.join('|'));
+    assert(B.notes.some(n => /over 800 KB/.test(n) && /read for keys only/.test(n) && /big\.properties/.test(n) && /code rules did not run/.test(n)), B.notes.join('|'));
+    assert(!B.notRead.some(n => /800 KB/.test(n)), JSON.stringify(B.notRead));
+    assert.strictEqual(B.partly, false, JSON.stringify(B.notRead));
+  });
+  w('bigmix/index.js', 'let a = 1;\n'); w('bigmix/big.properties', padding + 'k=' + bigKey + '\n'); w('bigmix/blob.js', Buffer.alloc(900 * 1024));
+  const M = await runAudit(mkRepo('bigmix'), null, { disclosure: ctx('bigmix') });
+  check('one the keys pass could not read stays "not read"', () => {
+    assert(M.notRead.includes('Code files over 800 KB: 1') && M.partly, JSON.stringify(M.notRead));
+    assert(M.notes.some(n => /1 code file over 800 KB was not read: blob\.js/.test(n)) && M.notes.some(n => /read for keys only/.test(n) && /big\.properties/.test(n)), M.notes.join('|'));
+  });
+  const B0 = await runAudit(path.join(tmp, 'bigprops'), null, {});
+  check('with no keys pass the file is "not read" as before', () => assert(B0.partly && B0.notRead.includes('Code files over 800 KB: 1'), JSON.stringify(B0.notRead)));
 }
 
 async function main() {
@@ -723,10 +830,25 @@ async function main() {
   const DY = await runAudit(dyingDir, null, { root: false, workerFile: dying, budgets: { code: 2000, agents: 2000, disclosure: 8000 }, graceMs: 1000, disclosure: { details: [], others: [], own: [] } });
   check('a thread gone between parts does not cost the next part its budget', () => { assert(Date.now() - t1 < 6000, (Date.now() - t1) + ' ms'); assert.deepStrictEqual(DY.cut, []); });
 
+  // Third-party code holds made-up keys in its tests: not read for keys, committed or in a zip. Build output still is.
+  const third = path.join(tmp, 'third-party');
+  fs.mkdirSync(path.join(third, 'vendor', 'lib'), { recursive: true });
+  fs.mkdirSync(path.join(third, 'dist'), { recursive: true });
+  fs.writeFileSync(path.join(third, 'index.html'), '<title>x</title>');
+  fs.writeFileSync(path.join(third, 'vendor', 'lib', 'hook.txt'), 'k = ' + liveKey + '\n');
+  fs.writeFileSync(path.join(third, 'dist', 'app.js'), 'var k = "' + liveKey + '";\n');
+  const TP = await runAudit(third, null, { disclosure: { details: [], others: [], own: ['third-party'] } });
+  check('keys in vendor/ are left out of the keys pass, and those in dist/ are not', () => {
+    const at = TP.findings.filter(f => /^SEC-/.test(f.rule)).map(f => f.where);
+    assert(at.some(w => w.startsWith('dist/')), JSON.stringify(at));
+    assert(!at.some(w => w.startsWith('vendor/')), JSON.stringify(at));
+  });
+
   await timeBudgets();
   await honestVerdict();
   await keysInWhatIsPublished();
   await configPasswordsAndRootWebroot();
+  await moreKeyKinds();
 
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log(failures ? failures + ' FAILED' : 'all passed');

@@ -223,6 +223,48 @@ echo file_get_contents('https://api.weather-paid.example/v1?q=' . urlencode($tow
   // RLS-001: database.sql in the project root
   ['RLS-001', { 'src/db.js': "import { createClient } from '@supabase/supabase-js';\nexport const db = createClient(u, k);\n", 'database.sql': 'create table notes (id int);\n' },
     { 'src/db.js': "import { createClient } from '@supabase/supabase-js';\nexport const db = createClient(u, k);\n", 'database.sql': 'create table notes (id int);\nalter table notes enable row level security;\n' }],
+  // every route of a file is read: an open GET on a table of no one's does not hide the open DELETE after it
+  ['API-001', { 'srv.js': "const express = require('express');\nconst app = express();\napp.get('/api/todos', async (req, res) => res.json(await prisma.todo.findMany()));\napp.delete('/api/todos/:id', async (req, res) => {\n  await prisma.todo.delete({ where: { id: req.params.id } });\n  res.end();\n});\n" },
+    { 'srv.js': "const express = require('express');\nconst app = express();\napp.get('/api/todos', async (req, res) => res.json(await prisma.todo.findMany()));\napp.delete('/api/todos/:id', requireUser, async (req, res) => {\n  await prisma.todo.delete({ where: { id: req.params.id } });\n  res.end();\n});\n" }],
+  // Clerk: the matcher says where the middleware runs; createRouteMatcher's list says what it protects
+  ['API-001', { 'app/api/users/route.ts': "export async function GET() { return Response.json(await prisma.user.findMany()); }\nexport async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }\n",
+    'middleware.ts': "import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';\nconst isProtectedRoute = createRouteMatcher(['/dashboard(.*)']);\nexport default clerkMiddleware(async (auth, req) => {\n  if (isProtectedRoute(req)) await auth.protect();\n});\nexport const config = { matcher: ['/(api|trpc)(.*)'] };\n" },
+  { 'app/api/users/route.ts': "export async function GET() { return Response.json(await prisma.user.findMany()); }\nexport async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }\n",
+    'middleware.ts': "import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';\nconst isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/api/users(.*)']);\nexport default clerkMiddleware(async (auth, req) => {\n  if (isProtectedRoute(req)) await auth.protect();\n});\nexport const config = { matcher: ['/(api|trpc)(.*)'] };\n" }],
+  ['API-001', { 'app/api/users/route.ts': "export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }\n",
+    'middleware.ts': "import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';\nconst isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/api/users(.*)']);\nexport default clerkMiddleware(async (auth, req) => {\n  if (!isPublicRoute(req)) await auth.protect();\n});\nexport const config = { matcher: ['/(api|trpc)(.*)'] };\n" },
+  { 'app/api/users/route.ts': "export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }\n",
+    'middleware.ts': "import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';\nconst isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/']);\nexport default clerkMiddleware(async (auth, req) => {\n  if (!isPublicRoute(req)) await auth.protect();\n});\nexport const config = { matcher: ['/(api|trpc)(.*)'] };\n" }],
+  ['API-001', { 'app/api/users/route.ts': "export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }\n",
+    'middleware.ts': "import { clerkMiddleware } from '@clerk/nextjs/server';\nexport default clerkMiddleware(async (auth, req) => {\n  console.log(req.url);\n});\nexport const config = { matcher: ['/(api|trpc)(.*)'] };\n" },
+  { 'app/api/users/route.ts': "export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }\n",
+    'middleware.ts': "import { clerkMiddleware } from '@clerk/nextjs/server';\nexport default clerkMiddleware(async (auth, req) => {\n  await auth.protect();\n});\nexport const config = { matcher: ['/(api|trpc)(.*)'] };\n" }],
+  // a path of Hono's with a star takes in everything under it, and nothing beside it
+  ['API-001', { 'srv.ts': "import { Hono } from 'hono';\nconst app = new Hono();\napp.use('/admin/*', jwt({ secret }));\napp.post('/api/todos', async (c) => {\n  await db.insert(todos).values(await c.req.json());\n  return c.json({});\n});\n" },
+    { 'srv.ts': "import { Hono } from 'hono';\nconst app = new Hono();\napp.use('/api/*', jwt({ secret }));\napp.post('/api/todos', async (c) => {\n  await db.insert(todos).values(await c.req.json());\n  return c.json({});\n});\n" }],
+  // a project's own function on the .use line is read: it refuses, or it does not
+  ['API-001', { 'srv.js': "const express = require('express');\nconst app = express();\nfunction logCalls(req, res, next) { console.log(req.url); next(); }\napp.use('/api', logCalls);\napp.post('/api/todos', async (req, res) => {\n  await prisma.todo.create({ data: req.body });\n  res.end();\n});\n" },
+    { 'srv.js': "const express = require('express');\nconst app = express();\nfunction checkCaller(req, res, next) {\n  if (req.get('x-caller-key') !== process.env.CALLER_KEY) return res.status(401).end();\n  next();\n}\napp.use('/api', checkCaller);\napp.post('/api/todos', async (req, res) => {\n  await prisma.todo.create({ data: req.body });\n  res.end();\n});\n" }],
+  // a router named for what it holds is a mount, not a check; one standing behind isAdmin has a check
+  ['API-001', { 'server.js': "const express = require('express');\nconst app = express();\nconst admin = require('./routes/admin');\napp.use('/api/admin', admin);\n", 'routes/admin.js': "const router = require('express').Router();\nrouter.delete('/users/:id', async (req, res) => {\n  await User.findByIdAndDelete(req.params.id);\n  res.end();\n});\nmodule.exports = router;\n" },
+    { 'server.js': "const express = require('express');\nconst app = express();\nconst admin = require('./routes/admin');\napp.use('/api/admin', isAdmin, admin);\n", 'routes/admin.js': "const router = require('express').Router();\nrouter.delete('/users/:id', async (req, res) => {\n  await User.findByIdAndDelete(req.params.id);\n  res.end();\n});\nmodule.exports = router;\n" }],
+  // an inline server action inside a page answers anyone who posts to that page
+  ['API-001', { 'app/people/page.tsx': "export default function Page() {\n  async function wipe() {\n    'use server';\n    await prisma.user.deleteMany();\n  }\n  return <form action={wipe}><button>Wipe</button></form>;\n}\n" },
+    { 'app/people/page.tsx': "export default async function Page() {\n  async function wipe() {\n    'use server';\n    const s = await auth();\n    if (!s) return;\n    await prisma.user.deleteMany();\n  }\n  return <form action={wipe}><button>Wipe</button></form>;\n}\n" }],
+  // NextAuth's auth, handed over as the middleware with no authorized callback, turns no one away
+  ['API-001', { 'auth.ts': "import NextAuth from 'next-auth';\nexport const { handlers, auth } = NextAuth({ providers: [] });\n", 'middleware.ts': "export { auth as middleware } from '@/auth';\n",
+    'app/api/notes/route.ts': "export async function DELETE() { await prisma.note.deleteMany(); return Response.json({}); }\n" },
+  { 'auth.ts': "import NextAuth from 'next-auth';\nexport const { handlers, auth } = NextAuth({ providers: [], callbacks: { authorized({ auth }) { return !!auth; } } });\n", 'middleware.ts': "export { auth as middleware } from '@/auth';\n",
+    'app/api/notes/route.ts': "export async function DELETE() { await prisma.note.deleteMany(); return Response.json({}); }\n" }],
+  // FIRE-001: Firebase's test-mode rules, in each of its three rule files
+  ['FIRE-001', { 'src/fb.js': "import { initializeApp } from 'firebase/app';\nexport const app = initializeApp(cfg);\n", 'firestore.rules': "rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}\n" },
+    { 'src/fb.js': "import { initializeApp } from 'firebase/app';\nexport const app = initializeApp(cfg);\n", 'firestore.rules': "rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /posts/{id} {\n      allow read: if true;\n      allow write: if request.auth != null;\n    }\n  }\n}\n" }],
+  ['FIRE-001', { 'firebase.json': '{"storage":{"rules":"storage.rules"}}\n', 'storage.rules': "service firebase.storage {\n  match /b/{bucket}/o {\n    match /{allPaths=**} {\n      allow read, write;\n    }\n  }\n}\n" },
+    { 'firebase.json': '{"storage":{"rules":"storage.rules"}}\n', 'storage.rules': "service firebase.storage {\n  match /b/{bucket}/o {\n    match /{allPaths=**} {\n      allow read;\n      allow write: if request.auth != null;\n    }\n  }\n}\n" }],
+  ['FIRE-001', { 'package.json': '{"dependencies":{"firebase":"10.0.0"}}\n', 'database.rules.json': '{\n  "rules": {\n    ".read": true,\n    ".write": true\n  }\n}\n' },
+    { 'package.json': '{"dependencies":{"firebase":"10.0.0"}}\n', 'database.rules.json': '{\n  "rules": {\n    ".read": true,\n    ".write": "auth != null"\n  }\n}\n' }],
+  ['FIRE-001', { 'firebase.json': '{}\n', 'firestore.rules': "match /{document=**} {\n  allow read, write: if request.time < timestamp.date(2999, 1, 1);\n}\n" },
+    { 'firebase.json': '{}\n', 'firestore.rules': "match /{document=**} {\n  allow read, write: if request.time < timestamp.date(2001, 1, 1);\n}\n" }],
   ['RLS-001', { 'package.json': '{"dependencies":{"@supabase/supabase-js":"2.0.0"}}\n', 'src/db.js': "import { createClient } from '@supabase/supabase-js';\nexport const db = createClient(u, k);\n", 'schema.sql': 'DROP TABLE IF EXISTS profiles;\nCREATE TABLE IF NOT EXISTS "public"."profiles" (id uuid);\n' },
     { 'package.json': '{"dependencies":{"@supabase/supabase-js":"2.0.0"}}\n', 'src/db.js': "import { createClient } from '@supabase/supabase-js';\nexport const db = createClient(u, k);\n", 'schema.sql': 'DROP TABLE IF EXISTS profiles;\nCREATE TABLE IF NOT EXISTS "public"."profiles" (id uuid);\nALTER TABLE ONLY "public"."profiles" ENABLE ROW LEVEL SECURITY;\n' }],
 ];
@@ -331,8 +373,8 @@ const QUIET = [
   ['API-001', { 'app/actions.ts': "'use server';\nexport async function signUp(formData) {\n  await prisma.user.create({ data: { email: formData.get('email') } });\n}\nexport async function sendContact(formData) {\n  await prisma.enquiry.create({ data: { text: formData.get('text') } });\n}\n" }],
   ['API-001', { 'app/actions.ts': "'use server';\nasync function me() { const s = await auth(); if (!s) throw new Error('Please sign in first.'); return s.user; }\nexport async function dropOrder(id) {\n  const u = await me();\n  await prisma.order.deleteMany({ where: { id, userId: u.id } });\n}\n" }],
   ['API-001', { 'app/actions.ts': "'use server';\nexport const dropOrder = authAction.action(async ({ id, ctx }) => {\n  await prisma.order.deleteMany({ where: { id, userId: ctx.user.id } });\n});\n" }],
-  // a 'use server' written inside a function of a component is not a file of actions
-  ['API-001', { 'app/page.tsx': "export default function Page() {\n  async function go() {\n    'use server';\n    await prisma.order.deleteMany();\n  }\n  return <form action={go} />;\n}\nexport async function other() { return prisma.order.deleteMany(); }\n" }],
+  // a 'use server' written inside a function of a component is not a file of actions: other() is not an action
+  ['API-001', { 'app/page.tsx': "export default function Page() {\n  async function go() {\n    'use server';\n    await prisma.interest.create({ data: {} });\n  }\n  return <form action={go} />;\n}\nexport async function other() { return prisma.order.deleteMany(); }\n" }],
   // API-001/002: honest routes
   ['API-001', { 'app/api/health/route.ts': "export async function GET() { await prisma.user.count(); return Response.json({ ok: true }); }\n" }],
   ['API-002', { 'app/api/blog/route.ts': "export async function GET() { return Response.json(await prisma.post.findMany({ where: { published: true } })); }\n" }],
@@ -364,11 +406,43 @@ const QUIET = [
   ['PAY-007', { 'app/api/github/webhook/route.ts': "export async function POST(req) { const e = await req.json(); await build(e); return Response.json({}); }\n" }],
   ['PAY-007', { 'lib/webhooks/stripe-events.ts': "export async function onEvent(event) { if (event.type === 'checkout.session.completed') await grant(event); }\n" }],
   ['PAY-007', { 'app/api/webhooks/paddle/route.ts': "import { paddle } from '@/lib/paddle';\nexport async function POST(req) { const e = await paddle.webhooks.unmarshal(await req.text(), key, req.headers.get('paddle-signature')); await grant(e); return Response.json({}); }\n" }],
+  // API-001: a project's own guard handed to the route itself, by a name that says so and by one that does not
+  ['API-001', { 'server.js': "const express = require('express');\nconst app = express();\nconst checkApiKey = (req, res, next) => { if (req.headers['x-api-key'] !== process.env.API_KEY) return res.sendStatus(401); next(); };\napp.delete('/api/users/:id', checkApiKey, async (req, res) => { await User.findByIdAndDelete(req.params.id); res.end(); });\n" }],
+  ['API-001', { 'server.js': "const express = require('express');\nconst app = express();\nconst gatekeeper = (req, res, next) => { if (req.headers['x-pass'] !== process.env.PASS) return res.sendStatus(401); next(); };\napp.delete('/api/users/:id', gatekeeper, async (req, res) => { await User.findByIdAndDelete(req.params.id); res.end(); });\n" }],
   // RLS-001: enabled in a later migration; a table outside public; a project with no Supabase; a loop that enables it
   ['RLS-001', { 'supabase/migrations/1.sql': 'create table notes (id int);\n', 'supabase/migrations/2.sql': 'alter table if exists public.notes enable row level security;\n' }],
   ['RLS-001', { 'supabase/migrations/1.sql': 'create table private.audit (id int);\n/* create table public.old (id int); */\n-- create table public.older (id int);\n' }],
   ['RLS-001', { 'db/schema.sql': 'create table notes (id int);\n', 'src/db.js': "import pg from 'pg';\nexport const db = new pg.Pool();\n" }],
   ['RLS-001', { 'supabase/migrations/1.sql': "create table a (id int);\ncreate table b (id int);\ndo $$ declare r record; begin for r in select tablename from pg_tables where schemaname = 'public' loop\n  execute format('alter table %I enable row level security', r.tablename);\nend loop; end $$;\n" }],
+  // Clerk: anything not read as a plain if counts as covering; a route that checks for itself needs nothing
+  ['API-001', { 'app/api/users/route.ts': "export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }\n", 'middleware.ts': "import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';\nconst isPublicRoute = createRouteMatcher(['/sign-in(.*)']);\nexport default clerkMiddleware(async (auth, req) => {\n  if (isPublicRoute(req)) return;\n  await auth.protect();\n});\nexport const config = { matcher: ['/(api|trpc)(.*)'] };\n" }],
+  ['API-001', { 'app/api/users/route.ts': "export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }\n", 'middleware.ts': "import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';\nconst isAdminRoute = createRouteMatcher(['/admin(.*)']);\nexport default clerkMiddleware(async (auth, req) => {\n  if (isAdminRoute(req)) await auth.protect({ role: 'admin' });\n  await auth.protect();\n});\nexport const config = { matcher: ['/(api|trpc)(.*)'] };\n" }],
+  ['API-001', { 'app/api/users/route.ts': "export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }\n", 'middleware.ts': "import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';\nconst isPublicRoute = createRouteMatcher(PUBLIC_PATHS);\nexport default clerkMiddleware(async (auth, req) => {\n  if (!isPublicRoute(req)) await auth.protect();\n});\nexport const config = { matcher: ['/(api|trpc)(.*)'] };\n" }],
+  ['API-001', { 'app/api/users/route.ts': "export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }\n", 'middleware.ts': "import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';\nconst isPublicRoute = createRouteMatcher(['/shop/(a|b)/(.*)']);\nexport default clerkMiddleware(async (auth, req) => {\n  if (!isPublicRoute(req)) await auth.protect();\n});\nexport const config = { matcher: ['/(api|trpc)(.*)'] };\n" }],
+  ['API-001', { 'app/api/users/route.ts': "export async function DELETE() { await prisma.user.deleteMany(); return Response.json({}); }\n", 'middleware.ts': "import { clerkMiddleware } from '@clerk/nextjs/server';\nexport default clerkMiddleware(async (auth, req) => {\n  const { userId } = await auth();\n  if (!userId) return Response.redirect(new URL('/sign-in', req.url));\n});\nexport const config = { matcher: ['/(api|trpc)(.*)'] };\n" }],
+  ['API-001', { 'app/api/users/route.ts': "import { auth } from '@clerk/nextjs/server';\nexport async function DELETE() { const { userId } = await auth(); if (!userId) return new Response(null, { status: 401 }); await prisma.user.deleteMany(); return Response.json({}); }\n", 'middleware.ts': "import { clerkMiddleware } from '@clerk/nextjs/server';\nexport default clerkMiddleware();\n" }],
+  // Express: a project's own guard on the .use line, by name or by what it does
+  ['API-001', { 'srv.js': "const express = require('express');\nconst app = express();\nfunction checkApiKey(req, res, next) {\n  if (req.headers['x-api-key'] !== process.env.API_KEY) return res.status(401).json({ error: 'That key is not right.' });\n  next();\n}\napp.use('/api', checkApiKey);\napp.post('/api/todos', async (req, res) => {\n  await prisma.todo.create({ data: req.body });\n  res.end();\n});\n" }],
+  ['API-001', { 'srv.js': "const express = require('express');\nconst app = express();\nconst { apiKey } = require('./mw');\napp.use('/api', apiKey);\napp.post('/api/todos', async (req, res) => {\n  await prisma.todo.create({ data: req.body });\n  res.end();\n});\n" }],
+  ['API-001', { 'server.js': "const express = require('express');\nconst app = express();\nconst adminRouter = require('./routes/admin');\nconst { isAdmin } = require('./mw');\napp.use('/api/admin', isAdmin, adminRouter);\n", 'routes/admin.js': "const router = require('express').Router();\nrouter.delete('/users/:id', async (req, res) => {\n  await User.findByIdAndDelete(req.params.id);\n  res.end();\n});\nmodule.exports = router;\n" }],
+  ['API-001', { 'server.js': "const express = require('express');\nconst app = express();\nconst teamRouter = require('./routes/team');\nconst { hasPermission } = require('./mw');\napp.use('/api/team', hasPermission('team'), teamRouter);\n", 'routes/team.js': "const router = require('express').Router();\nrouter.delete('/:id', async (req, res) => {\n  await Member.findByIdAndDelete(req.params.id);\n  res.end();\n});\nmodule.exports = router;\n" }],
+  // Hono: the same star on the whole server, and with no slash before it
+  ['API-001', { 'srv.ts': "import { Hono } from 'hono';\nconst app = new Hono();\napp.use('/*', bearerAuth({ token }));\napp.delete('/api/todos/:id', async (c) => {\n  await db.delete(todos).where(eq(todos.id, c.req.param('id')));\n  return c.json({});\n});\n" }],
+  ['API-001', { 'srv.ts': "import { Hono } from 'hono';\nconst app = new Hono();\napp.use('/api*', jwt({ secret }));\napp.delete('/api/todos/:id', async (c) => {\n  await db.delete(todos).where(eq(todos.id, c.req.param('id')));\n  return c.json({});\n});\n" }],
+  // inline server actions: a page that checks, a middleware over the page, a public form that only adds a record
+  ['API-001', { 'app/people/page.tsx': "import { auth } from '@/auth';\nexport default async function Page() {\n  const session = await auth();\n  if (!session) redirect('/login');\n  async function wipe() {\n    'use server';\n    await prisma.user.deleteMany();\n  }\n  return <form action={wipe} />;\n}\n" }],
+  ['API-001', { 'app/people/page.tsx': "export default function Page() {\n  async function wipe() {\n    'use server';\n    await prisma.user.deleteMany();\n  }\n  return <form action={wipe} />;\n}\n", 'middleware.ts': "export { default } from 'next-auth/middleware';\nexport const config = { matcher: ['/people/:path*'] };\n" }],
+  ['API-001', { 'app/page.tsx': "export default function Page() {\n  async function join(data) {\n    'use server';\n    await prisma.interest.create({ data: { email: data.get('email') } });\n  }\n  return <form action={join} />;\n}\n" }],
+  // NextAuth: a wrapper written out refuses for itself; the export of another project's own auth is not NextAuth's
+  ['API-001', { 'auth.ts': "import NextAuth from 'next-auth';\nexport const { auth } = NextAuth({ providers: [] });\n", 'middleware.ts': "import { auth } from '@/auth';\nexport default auth((req) => {\n  if (!req.auth) return Response.redirect(new URL('/login', req.url));\n});\n", 'app/api/notes/route.ts': "export async function DELETE() { await prisma.note.deleteMany(); return Response.json({}); }\n" }],
+  ['API-001', { 'lib/auth.ts': "export function auth(req) { if (!req.cookies.get('sid')) return Response.redirect('/login'); }\n", 'middleware.ts': "export { auth as middleware } from './lib/auth';\n", 'app/api/notes/route.ts': "export async function DELETE() { await prisma.note.deleteMany(); return Response.json({}); }\n" }],
+  // FIRE-001: guarded rules; a project with no Firebase; a line commented out; a form anyone may add to; a skipped folder
+  ['FIRE-001', { 'src/fb.js': "import { getFirestore } from 'firebase/firestore';\n", 'firestore.rules': "match /{document=**} {\n  allow read, write: if request.auth != null;\n}\n" }],
+  ['FIRE-001', { 'src/db.js': "import pg from 'pg';\nexport const db = new pg.Pool();\n", 'firestore.rules': "match /{document=**} {\n  allow read, write: if true;\n}\n" }],
+  ['FIRE-001', { 'firebase.json': '{}\n', 'firestore.rules': "match /{document=**} {\n  // allow read, write: if true;\n  /* allow write: if true; */\n  allow read, write: if request.auth != null;\n}\n" }],
+  ['FIRE-001', { 'firebase.json': '{}\n', 'firestore.rules': "match /enquiries/{id} {\n  allow create: if true;\n  allow read, update, delete: if request.auth != null;\n}\n" }],
+  ['FIRE-001', { 'firebase.json': '{}\n', 'tests/firestore.rules': "match /{document=**} {\n  allow read, write: if true;\n}\n" }],
+  ['FIRE-001', { 'firebase.json': '{}\n', 'database.rules.json': '{\n  // ".write": true,\n  "rules": { "posts": { ".read": true, ".write": false } }\n}\n' }],
 ];
 
 async function main() {
@@ -385,6 +459,34 @@ async function main() {
     const found = await scan('q' + n, files);
     check(id + ' stays quiet (a shape it once flagged on a real project, #' + n + ')', () => assert(!found.some(f => f.rule === id), 'flagged ' + where(found.filter(f => f.rule === id))));
   }
+  // One finding a file, and the worst route of the file: a change, then someone's data, then anything else.
+  const crud = await scan('crud', { 'srv.js': "const express = require('express');\nconst app = express();\napp.get('/api/todos', async (req, res) => res.json(await prisma.todo.findMany()));\napp.get('/api/people', async (req, res) => res.json(await prisma.user.findMany()));\napp.delete('/api/todos/:id', async (req, res) => {\n  await prisma.todo.delete({ where: { id: req.params.id } });\n  res.end();\n});\napp.post('/api/tags', async (req, res) => {\n  await prisma.tag.create({ data: req.body });\n  res.end();\n});\n" });
+  check('a file of open routes gets one finding, for its worst: the delete', () => {
+    const open = crud.filter(f => /^API-00[12]$/.test(f.rule));
+    assert.strictEqual(open.length, 1, where(open));
+    assert(open[0].rule === 'API-001' && /\/api\/todos\/:id changes/.test(open[0].title), open[0].title);
+  });
+  const reads = await scan('reads', { 'srv.js': "const express = require('express');\nconst app = express();\napp.get('/api/todos', async (req, res) => res.json(await prisma.todo.findMany()));\napp.get('/api/people', async (req, res) => res.json(await prisma.user.findMany()));\n" });
+  check('with no change in the file, someone\'s data beats a plain read', () => {
+    const open = reads.filter(f => /^API-00[12]$/.test(f.rule));
+    assert(open.length === 1 && open[0].rule === 'API-001' && /\/api\/people returns/.test(open[0].title), where(open));
+  });
+  const plain = await scan('plain', { 'srv.js': "const express = require('express');\nconst app = express();\napp.get('/api/todos', async (req, res) => res.json(await prisma.todo.findMany()));\napp.get('/api/tasks', async (req, res) => res.json(await prisma.task.findMany()));\n" });
+  check('plain reads alone stay Medium, one finding for the file', () => {
+    const open = plain.filter(f => /^API-00[12]$/.test(f.rule));
+    assert(open.length === 1 && open[0].rule === 'API-002', where(open));
+  });
+  const fire = await scan('fire', { 'firebase.json': '{}\n', 'firestore.rules': "match /{document=**} {\n  allow read, write: if true;\n}\n", 'storage.rules': "match /{allPaths=**} {\n  allow write: if true;\n}\n", 'node_modules/x/firestore.rules': "allow write: if true;\n" });
+  check('FIRE-001 is High, one finding a rules file, at the open line, none from node_modules', () => {
+    const hits = fire.filter(f => f.rule === 'FIRE-001');
+    assert.strictEqual(hits.length, 2, where(hits));
+    assert(hits.every(f => f.sev === 'High'), 'not High');
+    assert(hits.some(f => f.where.startsWith('firestore.rules:2')), where(hits));
+  });
+  const skipDir = path.join(tmp, 'fire-skip');
+  write(skipDir, { 'firebase.json': '{}\n', 'old/firestore.rules': "match /{document=**} {\n  allow write: if true;\n}\n" });
+  const skipped = (await runAudit(skipDir, null, { root: false, skip: ['old'] })).findings;
+  check('FIRE-001 does not read a folder on the skip list', () => assert(!skipped.some(f => f.rule === 'FIRE-001'), where(skipped)));
   check('every cross-file rule has a pair', () => {
     const have = new Set(PAIRS.map(p => p[0]));
     const missing = CROSS_RULES.map(r => r.id).filter(id => !have.has(id));

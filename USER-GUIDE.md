@@ -2,7 +2,7 @@
 
 Everything in detail. The short version is in [README.md](README.md).
 
-**Contents:** [What you need](#what-you-need) · [Install and start](#install-and-start) · [Your first five minutes](#your-first-five-minutes) · [The window](#the-window) · [Demo](#demo) · [Where start commands come from](#where-start-commands-come-from) · [Names and descriptions](#names-and-descriptions-projectsjson) · [The built-in audit](#the-built-in-audit) · [Safety and privacy](#safety-and-privacy) · [If something goes wrong](#if-something-goes-wrong) · [Questions](#questions) · [Report a problem](#report-a-problem) · [What's new](#whats-new-in-0113)
+**Contents:** [What you need](#what-you-need) · [Install and start](#install-and-start) · [Your first five minutes](#your-first-five-minutes) · [The window](#the-window) · [Demo](#demo) · [Where start commands come from](#where-start-commands-come-from) · [Names and descriptions](#names-and-descriptions-projectsjson) · [The built-in audit](#the-built-in-audit) · [Safety and privacy](#safety-and-privacy) · [If something goes wrong](#if-something-goes-wrong) · [Questions](#questions) · [Report a problem](#report-a-problem) · [What's new](#whats-new-in-0114)
 
 ## What you need
 
@@ -345,7 +345,9 @@ audit lists the record of every rule it shows that someone has judged. **Passed,
   runs encoded code, a script that reads your SSH keys or saved passwords, collects every environment variable,
   posts to a drop box (a chat webhook, a paste site, a tunnel, a bare IP address) or sends your key to a service the
   skill never names, one that sets itself up to run again later, permission checks switched off, any command allowed
-  without asking, an MCP server fetched at whatever version is newest, and every project MCP server switched on.
+  without asking, an MCP server fetched at whatever version is newest, and every project MCP server switched on. It
+  also reads Codex, Gemini, Cline, Roo, Kiro and VS Code files, install scripts and tasks that run by themselves, and looks
+  for file uploads to services the skill never names and for data sent out through an image link or your reply.
   A worktree copy inside `.claude` is the project again, so it is not read twice. The same install line is a warning
   in a guide (it names where the program comes from) and Critical in a hook or script, which runs it on its own.
 - **Publish guard** (a project's **…** menu › Publish guard…, for a git repository): checks the project with this
@@ -418,7 +420,7 @@ audit lists the record of every rule it shows that someone has judged. **Passed,
   with a note instead of freezing the Bridge.
 - The code rules leave out `node_modules`, `.git`, `vendor`, build and release copies, and test folders.
 - **Old copies of the app** inside a project folder are left out too, so a fault is counted once, where the app
-  lives: an `original ...` folder, a `...-fixes` copy, `old/` or `backups/`, an unpacked release (a `name-v1.2.3/`
+  lives: an `original ...` folder, a `my-app-fixes` copy beside `my-app/` (a `css-fixes/` on its own stays in), `old/` or `backups/`, an unpacked release (a `name-v1.2.3/`
   beside `name-v1.2.3.zip`, or a version folder inside `releases/`), older versions side by side (the highest
   stays), and copies like `my-app/` beside `my-app-php/` in a folder with nothing of its own (the one
   `.claude/launch.json` starts is the app, else the one changed last). The notes name every folder left out and
@@ -516,6 +518,28 @@ Open an issue on this repository's **Issues** page: what you did, what you expec
 version from **About**. Please leave out your own folder paths, project names and private details. Copy faults and
 the audit show labels instead of your private details, but they do name the project and its files: read the text
 before you paste it.
+
+## What's new in 0.1.14
+
+- **Faults that apps built with AI tend to ship:** a Supabase service-role key or Firebase admin credentials in browser
+  code, a secret behind a public prefix (`NEXT_PUBLIC_`, `VITE_`, `REACT_APP_`, `EXPO_PUBLIC_`, `PUBLIC_`), a data
+  route nothing checks, a Supabase table with no row-level security, an amount to charge taken from the visitor, a
+  payment webhook with no signature check, a leftover debug route, a logged token, CORS open with credentials.
+- **Keys in everything you would publish:** build folders, notebooks, `.sql`, `.bak`, `Dockerfile` and files with no
+  extension are now read for keys. `.vue`, `.svelte` and `.astro` are read like other code; compiled languages, config
+  files and `.min.js` are read for keys.
+- **An honest verdict:** **Passed, partly checked** (◐) names what could not be read, **Check did not finish** replaces
+  a Passed when a part stopped or crashed, and **No code was read** replaces one when nothing was. The publish guard stops
+  a push when a part of the check did not finish, and an audit says so if the guard is on but git no longer runs it.
+- **Never a frozen Bridge:** each part of an audit runs on a helper thread with a time limit, so a slow pattern ends in a
+  note, and the Bridge keeps answering meanwhile.
+- **Check a skill reads more:** `.toml` commands, scripts with no extension, `.vbs`, text files a skill tells the agent
+  to read, `.vscode/mcp.json`, `.github/instructions`, `.clinerules`, `.roo`, `.kiro`, `package.json` install scripts,
+  tasks that run when a folder opens, devcontainer commands. It also finds `!` commands, file uploads, data sent through
+  an image link or your reply, MCP servers behind a wrapper, settings that reroute the agent's traffic, and rarer invisible
+  characters.
+- **Update warning:** a zip or tag signed with a key this Bridge does not know now shows that key's fingerprint, to
+  compare with the one in the README, and is worded as firmly as an unsigned one.
 
 ## What's new in 0.1.13
 
