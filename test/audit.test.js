@@ -844,6 +844,17 @@ async function main() {
     assert(!at.some(w => w.startsWith('vendor/')), JSON.stringify(at));
   });
 
+  const exampleEnv = path.join(tmp, 'env-local-example');
+  fs.mkdirSync(path.join(exampleEnv, 'public_html'), { recursive: true });
+  fs.writeFileSync(path.join(exampleEnv, 'public_html', 'index.html'), '<title>x</title>');
+  fs.writeFileSync(path.join(exampleEnv, 'public_html', '.env.local.example'), 'A=your-value\n');
+  fs.writeFileSync(path.join(exampleEnv, 'public_html', '.env.local'), 'A=b\n');
+  const EE = await runAudit(exampleEnv, null);
+  check('.env.local.example is an example; .env.local is not', () => {
+    const at = EE.findings.filter(f => f.rule === 'EXP-001').map(f => f.where);
+    assert(at.some(w => w.endsWith('.env.local')) && !at.some(w => w.endsWith('.env.local.example')), JSON.stringify(at));
+  });
+
   await timeBudgets();
   await honestVerdict();
   await keysInWhatIsPublished();

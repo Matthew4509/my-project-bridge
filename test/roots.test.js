@@ -20,6 +20,27 @@ const FAULT = '<?php include($_GET["page"]);\n'; // INJ-002: one planted code fa
 const EMAIL = 'robin.lark@mailbox.test';
 
 async function main() {
+  // ---- parts of one app are not copies, however alike their names ----
+  for (const [a, b] of [['todo-api', 'todo-web'], ['shop-frontend', 'shop-backend'], ['blog', 'blog-mobile'], ['notes_client', 'notes_server']]) {
+    const d = path.join(tmp, 'split-' + a);
+    fs.mkdirSync(path.join(d, a), { recursive: true });
+    fs.mkdirSync(path.join(d, b), { recursive: true });
+    fs.writeFileSync(path.join(d, 'README.md'), 'Notes.\n');
+    fs.writeFileSync(path.join(d, a, 'index.php'), '<?php echo 1;\n');
+    fs.writeFileSync(path.join(d, b, 'index.html'), '<title>x</title>\n');
+    const old = new Date(Date.now() - 86400000 * 30);
+    fs.utimesSync(path.join(d, a, 'index.php'), old, old);
+    const r = findRoots(d);
+    check(a + '/ and ' + b + '/ are two parts of one app: neither is left out', () => assert.deepStrictEqual(r.left.map(l => l.rel), []));
+  }
+  // The real app kept in old/, with only a docs folder beside it: old/ is what there is.
+  const docsBeside = path.join(tmp, 'docs-beside');
+  fs.mkdirSync(path.join(docsBeside, 'old'), { recursive: true });
+  fs.mkdirSync(path.join(docsBeside, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(docsBeside, 'old', 'index.php'), '<?php echo 1;\n');
+  fs.writeFileSync(path.join(docsBeside, 'docs', 'index.html'), '<title>x</title>\n');
+  check('a docs folder beside old/ does not make old/ a copy of anything', () => assert(!findRoots(docsBeside).left.some(l => l.rel === 'old')));
+
   // ---- 1. copies side by side, nothing of its own at the top ----
   w('side/lantern/index.php', FAULT); w('side/lantern/README.md', '# Lantern\n');
   w('side/lantern-php/index.php', FAULT);

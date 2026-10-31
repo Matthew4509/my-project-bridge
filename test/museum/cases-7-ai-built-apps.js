@@ -1202,4 +1202,322 @@ export const db = new pg.Pool();
   return <form onSubmit={submit} />;
 }
 ` }),
+
+  // ---- an amount that goes through a variable or a function of the file ----
+  R('ai-pay-one-variable-on', 'PAY-006', 'The amount from the body is turned into cents first, then charged', 'app/api/pay/route.ts',
+    { 'app/api/pay/route.ts': `export async function POST(req) {
+  const { amount } = await req.json();
+  const amountInCents = Math.round(amount * 100);
+  const intent = await stripe.paymentIntents.create({ amount: amountInCents, currency: 'usd' });
+  return Response.json({ secret: intent.client_secret });
+}
+` },
+    { 'app/api/pay/route.ts': `export async function POST(req) {
+  const { itemId } = await req.json();
+  const amountInCents = Math.round(PRICES[itemId] * 100);
+  const intent = await stripe.paymentIntents.create({ amount: amountInCents, currency: 'usd' });
+  return Response.json({ secret: intent.client_secret });
+}
+` }),
+  R('ai-pay-sample-sums-sent-prices', 'PAY-006', 'A function of the file adds up the prices in the visitor\'s list; the good copy looks them up on the server', 'server/intent.js',
+    { 'server/intent.js': `const calculateOrderAmount = (items) => {
+  let total = 0;
+  items.forEach((item) => {
+    total += item.price;
+  });
+  return total;
+};
+app.post('/create-payment-intent', async (req, res) => {
+  const { items } = req.body;
+  const total = calculateOrderAmount(items);
+  const intent = await stripe.paymentIntents.create({ amount: total, currency: 'usd' });
+  res.send({ clientSecret: intent.client_secret });
+});
+` },
+    { 'server/intent.js': `const calculateOrderAmount = (items) => {
+  let total = 0;
+  items.forEach((item) => {
+    total += PRODUCTS[item.id].price * item.quantity;
+  });
+  return total;
+};
+app.post('/create-payment-intent', async (req, res) => {
+  const { items } = req.body;
+  const total = calculateOrderAmount(items);
+  const intent = await stripe.paymentIntents.create({ amount: total, currency: 'usd' });
+  res.send({ clientSecret: intent.client_secret });
+});
+` }),
+  R('ai-pay-count-times-sent-price', 'PAY-006', 'A count times a price the visitor sent; the good copy multiplies by the server\'s price', 'app/api/credits/route.ts',
+    { 'app/api/credits/route.ts': `export async function POST(req) {
+  const { credits, price } = await req.json();
+  await stripe.paymentIntents.create({ amount: credits * price, currency: 'usd' });
+  return Response.json({ ok: true });
+}
+` },
+    { 'app/api/credits/route.ts': `export async function POST(req) {
+  const { credits } = await req.json();
+  await stripe.paymentIntents.create({ amount: credits * PRICE_PER_CREDIT, currency: 'usd' });
+  return Response.json({ ok: true });
+}
+` }),
+  Q('ai-quiet-pay-sample-fixed-amount', '^PAY-006$', 'A sample whose function returns a fixed amount, with the sum left in a comment', {
+    'server/intent.js': `const calculateOrderAmount = (items) => {
+  // Work out the total on the server, so nobody can change it in the browser
+  // items.forEach((item) => { total += item.amount; });
+  return 1400;
+};
+app.post('/create-payment-intent', async (req, res) => {
+  const { items } = req.body;
+  const intent = await stripe.paymentIntents.create({
+    amount: calculateOrderAmount(items),
+    currency: 'usd',
+  });
+  res.send({ clientSecret: intent.client_secret });
+});
+` }),
+  Q('ai-quiet-pay-plan-times-quantity', '^PAY-006$', 'The plan and the quantity come from the visitor; the price comes from the server', {
+    'api/subscribe.js': `const { plan, quantity } = req.body;
+await stripe.paymentIntents.create({ amount: PRICES[plan] * quantity, currency: 'usd' });
+` }),
+  Q('ai-quiet-pay-same-name-other-route', '^PAY-006$', 'One route quotes from what was sent; another fills the same name from the server and charges it', {
+    'api/shop.js': `app.post('/quote', async (req, res) => {
+  const { amount } = req.body;
+  const total = amount * 1.2;
+  res.json({ total });
+});
+app.post('/pay', async (req, res) => {
+  const { id } = req.body;
+  const total = priceOf(id);
+  await stripe.paymentIntents.create({ amount: total, currency: 'usd' });
+});
+` }),
+
+  // ---- checks that are not on the line a rule first reads ----
+  X('ai-clerk-older-public-api', 'API-001', 'Clerk\'s older authMiddleware lists all of /api as public, so the delete is open; the good copy lists only the webhooks', 'app/api/orders/route.ts',
+    { 'app/api/orders/route.ts': ORDERS_ROUTE, 'middleware.ts': `import { authMiddleware } from '@clerk/nextjs';
+export default authMiddleware({ publicRoutes: ['/', '/api/(.*)'] });
+export const config = { matcher: ['/((?!_next).*)', '/(api|trpc)(.*)'] };
+` },
+    { 'app/api/orders/route.ts': ORDERS_ROUTE, 'middleware.ts': `import { authMiddleware } from '@clerk/nextjs';
+export default authMiddleware({ publicRoutes: ['/', '/api/webhooks(.*)'] });
+export const config = { matcher: ['/((?!_next).*)', '/(api|trpc)(.*)'] };
+` }),
+  X('ai-inline-use-sets-header', 'API-001', 'An app.use written out in the call only sets a header; the good copy turns away who is not signed in', 'server/inline.js',
+    { 'server/inline.js': `const express = require('express');
+const app = express();
+app.use((req, res, next) => {
+  res.setHeader('X-Api-Key-Version', '1');
+  next();
+});
+app.delete('/api/users/:id', async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.end();
+});
+` },
+    { 'server/inline.js': `const express = require('express');
+const app = express();
+app.use((req, res, next) => {
+  if (!req.session.userId) return res.status(401).json({ error: 'Please sign in first.' });
+  next();
+});
+app.delete('/api/users/:id', async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.end();
+});
+` }),
+  X('ai-all-route-only-logs', 'API-001', 'app.all over /api only logs; the good copy names a guard', 'server/all.js',
+    { 'server/all.js': `const express = require('express');
+const app = express();
+function logCalls(req, res, next) { console.log(req.url); next(); }
+app.all('/api/*', logCalls);
+app.delete('/api/users/:id', async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.end();
+});
+` },
+    { 'server/all.js': `const express = require('express');
+const app = express();
+app.all('/api/*', requireAuth);
+app.delete('/api/users/:id', async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.end();
+});
+` }),
+  Q('ai-quiet-use-verifies-token', '^API-001$', 'A guard written out in app.use verifies a Firebase token and answers 401', {
+    'server/token.js': `const express = require('express');
+const app = express();
+app.use(async (req, res, next) => {
+  try {
+    const token = req.headers.authorization.split(' ')[1];
+    req.me = await admin.auth().verifyIdToken(token);
+    next();
+  } catch (err) {
+    res.status(401).json({ error: 'Please sign in first.' });
+  }
+});
+app.delete('/api/users/:id', async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.end();
+});
+` }),
+
+  // ---- a route that hands its work to another file ----
+  X('ai-controller-delete-open', 'API-001', 'A route names a controller in another file, and that controller deletes a user with no check anywhere', 'routes/userRoutes.js',
+    { 'routes/userRoutes.js': `const express = require('express');
+const router = express.Router();
+const { deleteUser } = require('../controllers/userController');
+router.delete('/:id', deleteUser);
+module.exports = router;
+`, 'controllers/userController.js': `const asyncHandler = require('express-async-handler');
+const User = require('../models/userModel');
+const deleteUser = asyncHandler(async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.json({ message: 'Removed' });
+});
+module.exports = { deleteUser };
+` },
+    { 'routes/userRoutes.js': `const express = require('express');
+const router = express.Router();
+const { deleteUser } = require('../controllers/userController');
+const { protect } = require('../middleware/authMiddleware');
+router.delete('/:id', protect, deleteUser);
+module.exports = router;
+`, 'controllers/userController.js': `const asyncHandler = require('express-async-handler');
+const User = require('../models/userModel');
+const deleteUser = asyncHandler(async (req, res) => {
+  await User.findByIdAndDelete(req.params.id);
+  res.json({ message: 'Removed' });
+});
+module.exports = { deleteUser };
+` }),
+  X('ai-router-route-chain-open', 'API-001', 'router.route chains two methods to controllers with no check; the good copy has router.use(protect)', 'routes/users.js',
+    { 'routes/users.js': `import { Router } from 'express';
+import {
+  getUsers,
+  addUser,
+} from '../controllers/users.js';
+const router = Router();
+router.route('/').get(getUsers).post(addUser);
+export default router;
+`, 'controllers/users.js': `export const getUsers = async (req, res) => {
+  res.json(await User.find({}));
+};
+export const addUser = async (req, res) => {
+  res.json(await new User(req.body).save());
+};
+` },
+    { 'routes/users.js': `import { Router } from 'express';
+import {
+  getUsers,
+  addUser,
+} from '../controllers/users.js';
+import { protect } from '../middleware/auth.js';
+const router = Router();
+router.use(protect);
+router.route('/').get(getUsers).post(addUser);
+export default router;
+`, 'controllers/users.js': `export const getUsers = async (req, res) => {
+  res.json(await User.find({}));
+};
+export const addUser = async (req, res) => {
+  res.json(await new User(req.body).save());
+};
+` }),
+  X('ai-route-calls-repo-open', 'API-001', 'A route returns userRepo.findAll(), and that function reads every user from another file', 'server/users.js',
+    { 'server/users.js': `const express = require('express');
+const app = express();
+const userRepo = require('./db/userRepo');
+app.get('/api/users', async (req, res) => {
+  res.json(await userRepo.findAll());
+});
+`, 'server/db/userRepo.js': `const db = require('./pool');
+module.exports = {
+  findAll: () => db.query('SELECT * FROM users'),
+};
+` },
+    { 'server/users.js': `const express = require('express');
+const app = express();
+const userRepo = require('./db/userRepo');
+const { requireUser } = require('./mw');
+app.get('/api/users', requireUser, async (req, res) => {
+  res.json(await userRepo.findAll());
+});
+`, 'server/db/userRepo.js': `const db = require('./pool');
+module.exports = {
+  findAll: () => db.query('SELECT * FROM users'),
+};
+` }),
+  Q('ai-quiet-controller-checks-itself', '^API-001$', 'The controller in another file checks req.user itself', {
+    'routes/notes.js': `const router = require('express').Router();
+const notes = require('../controllers/notes');
+router.route('/:id')
+  .get(notes.show)
+  .delete(notes.drop);
+module.exports = router;
+`, 'controllers/notes.js': `exports.show = async (req, res) => {
+  res.json(await Note.findOne({ _id: req.params.id, owner: req.user.id }));
+};
+exports.drop = async (req, res) => {
+  await Note.findOneAndDelete({ _id: req.params.id, owner: req.user.id });
+  res.end();
+};
+` }),
+  Q('ai-quiet-controller-sign-up', '^API-001$', 'A shop\'s usual routes: sign-up and sign-in are open, the catalogue is public, changes have guards', {
+    'routes/userRoutes.js': `const express = require('express');
+const router = express.Router();
+const { registerUser, authUser, getUsers } = require('../controllers/userController');
+const { protect, admin } = require('../middleware/authMiddleware');
+router.route('/').post(registerUser).get(protect, admin, getUsers);
+router.post('/login', authUser);
+module.exports = router;
+`, 'routes/productRoutes.js': `const express = require('express');
+const router = express.Router();
+const { getProducts, deleteProduct } = require('../controllers/productController');
+const { protect, admin } = require('../middleware/authMiddleware');
+router.route('/').get(getProducts);
+router.route('/:id').delete(protect, admin, deleteProduct);
+module.exports = router;
+`, 'controllers/userController.js': `const registerUser = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+  if (await User.findOne({ email })) throw new Error('That email already has an account.');
+  res.json(await User.create({ email, password }));
+});
+const authUser = asyncHandler(async (req, res) => {
+  res.json(await User.findOne({ email: req.body.email }));
+});
+const getUsers = asyncHandler(async (req, res) => {
+  res.json(await User.find({}));
+});
+module.exports = { registerUser, authUser, getUsers };
+`, 'controllers/productController.js': `const getProducts = asyncHandler(async (req, res) => {
+  res.json(await Product.find({}));
+});
+const deleteProduct = asyncHandler(async (req, res) => {
+  await Product.findByIdAndDelete(req.params.id);
+  res.end();
+});
+module.exports = { getProducts, deleteProduct };
+` }),
+
+  // ---- a route that only adds a record ----
+  X('ai-post-only-adds-record', 'API-002', 'A route takes only POST and only adds a record: Medium, in words that say when it is fine; the good copy checks who is calling', 'app/api/subscribers/route.ts',
+    { 'app/api/subscribers/route.ts': `export async function POST(req) {
+  await prisma.subscriber.create({ data: await req.json() });
+  return Response.json({ ok: true });
+}
+` },
+    { 'app/api/subscribers/route.ts': `export async function POST(req) {
+  const session = await auth();
+  if (!session) return new Response('Please sign in first.', { status: 401 });
+  await prisma.subscriber.create({ data: await req.json() });
+  return Response.json({ ok: true });
+}
+` }),
+  Q('ai-quiet-post-only-form-not-high', '^API-001$', 'A form that only saves a message is not reported as a High', {
+    'app/api/messages/route.ts': `export async function POST(req) {
+  await prisma.message.create({ data: await req.json() });
+  return Response.json({ ok: true });
+}
+` }),
 ];

@@ -287,7 +287,17 @@
   "ai-pay-remix-action",
   "ai-cors-hand-set",
   "ai-cors-hono-echo",
-  "ai-vite-loadenv-all"
+  "ai-vite-loadenv-all",
+  "ai-pay-one-variable-on",
+  "ai-pay-sample-sums-sent-prices",
+  "ai-pay-count-times-sent-price",
+  "ai-clerk-older-public-api",
+  "ai-inline-use-sets-header",
+  "ai-all-route-only-logs",
+  "ai-controller-delete-open",
+  "ai-router-route-chain-open",
+  "ai-route-calls-repo-open",
+  "ai-post-only-adds-record"
  ],
  "knownFalseFlags": []
 }
