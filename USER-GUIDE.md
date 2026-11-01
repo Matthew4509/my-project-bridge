@@ -519,6 +519,15 @@ version from **About**. Please leave out your own folder paths, project names an
 the audit show labels instead of your private details, but they do name the project and its files: read the text
 before you paste it.
 
+## What's new in 0.1.15
+
+- **Check a skill, tried on public skill collections:** far fewer false "Do not install" results. A warning, a sample in
+  a test file, a placeholder or a deny list now asks you to read it first, or says nothing.
+- **Keys:** more kinds of AI and service key, database passwords in addresses, sign-in secrets written into code, and
+  keys in files that do not read as text, in `.jar` files and in old versions of those files.
+- **Routes:** open refund, transfer and billing routes; `knex`; Nuxt and Hono amounts. Webhooks checked in middleware
+  from another file count as checked.
+
 ## What's new in 0.1.14
 
 - **Faults that apps built with AI tend to ship:** a Supabase service-role key or Firebase admin credentials in browser

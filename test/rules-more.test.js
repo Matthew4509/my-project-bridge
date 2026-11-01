@@ -123,6 +123,7 @@ const PAIRS = [
   // Key-shaped text below is joined at run time: no line of this file looks like a real key.
   ['KEY-001', 'views/Admin.jsx', `const db = createClient(url, serviceRoleKey);\nexport const Admin = () => <p>{db.name}</p>;\n`, `const db = createClient(url, anonKey);\nexport const Admin = () => <p>{db.name}</p>;\n`],
   ['KEY-002', 'public/app.js', `const k = "${token('service_role')}";\n`, `const k = "${token('anon')}";\n`],
+  ['SEC-017', 'auth.js', `const t = jwt.sign(x, 'hard-written');\n`, `const t = jwt.sign(x, process.env.JWT_SECRET);\n`],
   ['KEY-003', 'hooks/useStats.js', `const admin = require('firebase-admin');\nadmin.initializeApp({ credential: admin.credential.cert(key) });\n`, `import { initializeApp } from 'firebase/app';\ninitializeApp(webConfig);\n`],
   ['KEY-004', 'pages/index.js', `const key = require('../keys/acme-firebase-adminsdk-x1y2.json');\nexport default function Home() { return key.project_id; }\n`, `import site from '../site.json';\nexport default function Home() { return site.name; }\n`],
   ['KEY-005', 'static/key.json', `{"type": "service_account", "private_key": "${'made-up-not-a-key-'.repeat(4)}"}\n`, `{"type": "authorized_user", "note": "made up"}\n`],
