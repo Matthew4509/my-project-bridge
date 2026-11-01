@@ -116,6 +116,68 @@ async function main() {
   await quiet('a signing secret read from settings', '^SEC-017$', { 'auth.js': "const JWT_SECRET = process.env.JWT_SECRET;\nconst t = jwt.sign(x, JWT_SECRET, { expiresIn: '1h' });\nconst u = jwt.verify(x, getKey());\nconst v = jwt.sign(x, key, { algorithm: 'RS256' });\n" });
   await quiet('a test may hold one', '^SEC-017$', { 'test/auth.test.js': "const t = jwt.sign(x, 'secret');\n" });
 
+  // ---- a secret written in under its own name, or as the fallback when a setting is empty ----
+  const RC = '6L' + rnd(38);
+  const writtenIn = [
+    ['PHP define: a literal after a ternary', 'a.php', "<?php\ndefine('RECAPTCHA_V3_SECRET_KEY', $rc !== '' ? $rc : '" + RC + "'); // fallback: delete after rotating\n"],
+    ['PHP define: a literal after ?:', 'a.php', "<?php\ndefine('RECAPTCHA_SECRET', getenv('RECAPTCHA_SECRET') ?: '" + RC + "');\n"],
+    ['PHP define: a literal after ??', 'a.php', "<?php\ndefine('APP_SECRET', $_ENV['APP_SECRET'] ?? '" + RC + "');\n"],
+    ['PHP define: a name SEC-013 does not read', 'a.php', "<?php\ndefine('APP_SECRETKEY', '" + RC + "');\n"],
+    ['PHP variable: a literal after ?:', 'a.php', "<?php\n$secret = getenv('RECAPTCHA_SECRET') ?: '" + RC + "';\n"],
+    ['PHP variable: a literal after ??', 'a.php', "<?php\n$recaptcha_secret = $_ENV['RECAPTCHA_SECRET'] ?? '" + RC + "';\n"],
+    ['PHP array: a literal after ?:', 'a.php', "<?php\n$cfg['secret'] = getenv('S') ?: '" + RC + "';\n"],
+    ['PHP password: a literal after ?:', 'a.php', "<?php\n$db_password = getenv('DB_PASSWORD') ?: 'Summer2031x';\n"],
+    ['PHP variable: written in under its name', 'a.php', "<?php\n$recaptcha_secret = '" + RC + "';\n"],
+    ['PHP variable: written in, camel case', 'a.php', "<?php\n$secretKey = '" + RC + "';\n"],
+    ['PHP const: written in', 'a.php', "<?php\nconst RECAPTCHA_SECRET = '" + RC + "';\n"],
+    ['PHP Laravel env(): a literal second argument', 'a.php', "<?php\n$k = env('RECAPTCHA_SECRET', '" + RC + "');\n"],
+    ['JS: a literal after ||', 'a.js', "const s = process.env.RECAPTCHA_SECRET || '" + RC + "';\n"],
+    ['JS: a literal after ??', 'a.js', "const s = process.env.API_SECRET ?? '" + RC + "';\n"],
+    ['JS: an API key with a literal fallback', 'a.js', "const s = process.env.PAYMENTS_API_KEY || '" + RC + "';\n"],
+    ['JS: written in, constant', 'a.js', "const RECAPTCHA_SECRET = '" + RC + "';\n"],
+    ['JS: written in, camel case', 'a.ts', "const apiSecret = '" + RC + "';\n"],
+    ['JS: a literal fallback in an object', 'a.js', "module.exports = { recaptchaSecret: process.env.X || '" + RC + "' };\n"],
+    ['Python: environ.get with a literal', 'a.py', "RC = os.environ.get('RECAPTCHA_SECRET', '" + RC + "')\n"],
+    ['Python: getenv with a literal', 'a.py', "SECRET_KEY = os.getenv('SECRET_KEY', '" + RC + "')\n"],
+    ['Python: written in', 'a.py', "RECAPTCHA_SECRET = '" + RC + "'\n"],
+    ['Ruby: ENV.fetch with a literal', 'a.rb', "RC = ENV.fetch('RECAPTCHA_SECRET', '" + RC + "')\n"],
+    ['Ruby: a literal after ||', 'a.rb', "rc = ENV['RECAPTCHA_SECRET'] || '" + RC + "'\n"],
+  ];
+  for (const [name, file, text] of writtenIn) await fires(name, 'SEC-018', 'High', { [file]: text });
+  const notWrittenIn = [
+    ['an empty fallback', 'a.php', "<?php\ndefine('RC_SECRET', getenv('RC_SECRET') ?: '');\n$secret = getenv('S') ?: null;\n"],
+    ['read from settings', 'a.php', "<?php\n$secret = $cfg['recaptcha_secret'] ?? '';\ndefine('RC_SECRET', $secret);\n"],
+    ['a placeholder fallback', 'a.js', "const s = process.env.API_SECRET || 'changeme';\nconst t = process.env.X_SECRET || 'your-secret-here-1';\n"],
+    ['a header name, a setting name', 'a.js', "const SECRET_HEADER = 'x-webhook-signature-256-v1-abcdef';\nconst secretName = 'prod-db-secret-2031-a-long-name';\n"],
+    ['a file and a path', 'a.js', "const SECRET_FILE = 'secrets.json';\nconst secretPath = '/run/secrets/db1';\n"],
+    ['a label picked by a ternary', 'a.js', "const label = isSecret ? 'hiddenvalue1' : 'shownvalue2';\nconst m = password.length > 8 ? 'strong1234' : 'weak123456';\n"],
+    ['a path or a name as the fallback', 'a.py', "P = os.getenv('SECRET_FILE', '/etc/app/secrets1.json')\nN = os.environ.get('DB_SECRET', 'prod-db-secret')\n"],
+    ['read from the environment', 'a.py', "S = os.environ['SECRET_KEY']\nT = os.getenv('SECRET_KEY')\n"],
+    ['a site key, which is public', 'a.js', "const RECAPTCHA_SITE_KEY = '" + RC + "';\nconst publicKey = '" + RC + "';\n"],
+    ['the name of a setting as the value', 'a.js', "const secretKey = 'RECAPTCHA_SECRET_KEY_NAME_2';\n"],
+    ['a word, not a key', 'a.js', "const secretMessage = 'nothing_to_see_in_here_at_all';\n"],
+    ['the key Google publishes for testing', 'a.php', "<?php\n$secret = getenv('S') ?: '" + j('6LeIxAcTAAAAA', rnd(27)) + "';\n"],
+    ['a comparison is not a value', 'a.js', "if (secret === '" + RC + "') go();\n"],
+    ['a test file may hold one', 'test/a.js', "const RECAPTCHA_SECRET = '" + RC + "';\n"],
+  ];
+  for (const [name, file, text] of notWrittenIn) await quiet('written-in secret, quiet: ' + name, '^SEC-018$', { [file]: text });
+  await fires('a key in a PHP settings file is a Medium to check', 'SEC-019', 'Medium', { 'config.php': "<?php\nreturn ['recaptcha_secret' => '" + RC + "'];\n" });
+  await fires('a PHP secrets file too', 'SEC-019', 'Medium', { 'private/admin-secrets.php': "<?php\nreturn ['app_secret' => '" + RC + "'];\n" });
+  await quiet('a settings file is not reported as written into the code', '^SEC-018$', { 'config.php': "<?php\nreturn ['recaptcha_secret' => '" + RC + "'];\n", 'lib/secrets.php': "<?php\n$app_secret = '" + RC + "';\n" });
+  await fires('a fallback in a settings file is still the High', 'SEC-018', 'High', { 'config.php': "<?php\n$rc = getenv('RECAPTCHA_SECRET') ?: '" + RC + "';\n" });
+  await quiet('a fallback in a settings file is not reported twice', '^SEC-019$', { 'config.php': "<?php\n$rc = getenv('RECAPTCHA_SECRET') ?: '" + RC + "';\n" });
+  await fires('a JS file named config is still the High', 'SEC-018', 'High', { 'src/config.js': "const apiSecret = '" + RC + "';\n" });
+  await check('one finding for a line an older rule already reads', async () => {
+    const { a } = await audit({ 'a.php': "<?php\ndefine('RC_SECRET', '" + RC + "');\n$secret = '" + RC + "';\n", 'auth.js': "const JWT_SECRET = '" + RC + "';\n" });
+    assert(!a.findings.some(f => f.rule === 'SEC-018'), list(a));
+    assert(['SEC-013', 'SEC-004', 'SEC-017'].every(r => a.findings.some(f => f.rule === r)), list(a));
+  });
+  await check('a long line of fallbacks is read quickly', async () => {
+    const t0 = Date.now();
+    await audit({ 'a.js': "const a = x || 'abcd1234' ".repeat(70) + '\n' + "const secret_a = b ? c : 'abcd1234' ".repeat(50) + '\n' });
+    assert(Date.now() - t0 < 1000, (Date.now() - t0) + ' ms');
+  });
+
   // ---- the amount to charge ----
   await fires('Nuxt: the amount from what was posted', 'PAY-006', 'High', { 'server/api/pay.post.ts': "export default defineEventHandler(async event => {\n  const { amount } = await readBody(event);\n  return stripe.paymentIntents.create({ amount, currency: 'eur' });\n});\n" });
   await fires('Nuxt: the amount through a name', 'PAY-006', 'High', { 'server/api/pay.post.ts': "export default defineEventHandler(async event => {\n  const body = await readBody(event);\n  return stripe.paymentIntents.create({ amount: body.amount, currency: 'eur' });\n});\n" });

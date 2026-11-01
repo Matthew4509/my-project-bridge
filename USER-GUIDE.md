@@ -2,7 +2,7 @@
 
 Everything in detail. The short version is in [README.md](README.md).
 
-**Contents:** [What you need](#what-you-need) · [Install and start](#install-and-start) · [Your first five minutes](#your-first-five-minutes) · [The window](#the-window) · [Demo](#demo) · [Where start commands come from](#where-start-commands-come-from) · [Names and descriptions](#names-and-descriptions-projectsjson) · [The built-in audit](#the-built-in-audit) · [Safety and privacy](#safety-and-privacy) · [If something goes wrong](#if-something-goes-wrong) · [Questions](#questions) · [Report a problem](#report-a-problem) · [What's new](#whats-new-in-0114)
+**Contents:** [What you need](#what-you-need) · [Install and start](#install-and-start) · [Your first five minutes](#your-first-five-minutes) · [The window](#the-window) · [Demo](#demo) · [Where start commands come from](#where-start-commands-come-from) · [Names and descriptions](#names-and-descriptions-projectsjson) · [The built-in audit](#the-built-in-audit) · [Safety and privacy](#safety-and-privacy) · [If something goes wrong](#if-something-goes-wrong) · [Questions](#questions) · [Report a problem](#report-a-problem) · [What's new](#whats-new-in-0116)
 
 ## What you need
 
@@ -518,6 +518,10 @@ Open an issue on this repository's **Issues** page: what you did, what you expec
 version from **About**. Please leave out your own folder paths, project names and private details. Copy faults and
 the audit show labels instead of your private details, but they do name the project and its files: read the text
 before you paste it.
+
+## What's new in 0.1.16
+
+- **Secrets written in as a fallback:** the audit now reports a key written into the code under its own name, or as the value used when a setting is empty (PHP, JavaScript, TypeScript, Python, Ruby). A key kept in a PHP settings file is a Medium reminder to check that the file is never shared.
 
 ## What's new in 0.1.15
 
